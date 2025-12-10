@@ -104,20 +104,7 @@ tr.insight-row-grinder:hover td {
     background-color: #fecaca !important;
 }
 
-/* GHOST: Insufficient data - faded out */
-tr.insight-row-ghost {
-    opacity: 0.45;
-}
-
-tr.insight-row-ghost td {
-    background-color: #f3f4f6 !important;
-    color: #6b7280 !important;
-    font-style: italic;
-}
-
-tr.insight-row-ghost:hover {
-    opacity: 0.8;
-}
+/* Ghost classification removed - all agents fully visible */
 
 /* =============================================================================
    ANIMATIONS

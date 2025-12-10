@@ -235,7 +235,7 @@ function processAgentTable(table) {
         let insight = 'none';
         
         // Remove existing insight classes
-        row.classList.remove('insight-row-superstar', 'insight-row-grinder', 'insight-row-ghost');
+        row.classList.remove('insight-row-superstar', 'insight-row-grinder');
 
         if (CURRENT_CONFIG.enabled) {
             if (successRate > CURRENT_CONFIG.superstarRate || successCount > CURRENT_CONFIG.superstarSuccessCount) {
@@ -246,10 +246,6 @@ function processAgentTable(table) {
                 // GRINDER: High effort, zero results
                 row.classList.add('insight-row-grinder');
                 insight = 'grinder';
-            } else if (dialed < CURRENT_CONFIG.ghostDials) {
-                // GHOST: Not enough data to judge
-                row.classList.add('insight-row-ghost');
-                insight = 'ghost';
             }
         }
 

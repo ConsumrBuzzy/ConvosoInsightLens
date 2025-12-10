@@ -24,37 +24,35 @@ document.addEventListener('DOMContentLoaded', () => {
 // =============================================================================
 
 /**
- * Load data from active Convoso tab
+ * Load data from chrome.storage (set by popup before opening dashboard)
  */
 function loadData() {
     showLoading();
 
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        // Find a Convoso tab (might not be the popup opener)
-        chrome.tabs.query({ url: '*://*.convoso.com/*' }, (convosoTabs) => {
-            if (!convosoTabs || convosoTabs.length === 0) {
-                showError('No Convoso tab found. Please open a Convoso report page.');
-                return;
-            }
-
-            const targetTab = convosoTabs[0];
-            
-            chrome.tabs.sendMessage(targetTab.id, { action: 'requestData' }, (response) => {
-                if (chrome.runtime.lastError) {
-                    showError('Could not connect to Convoso page. Try refreshing the report.');
-                    console.error(chrome.runtime.lastError);
+    chrome.storage.local.get('dashboardData', (result) => {
+        if (result.dashboardData) {
+            currentData = result.dashboardData;
+            renderDashboard();
+            showContent();
+        } else {
+            // Fallback: try to get data directly from a Convoso tab
+            chrome.tabs.query({ url: '*://*.convoso.com/*' }, (convosoTabs) => {
+                if (!convosoTabs || convosoTabs.length === 0) {
+                    showError('No data available. Open a Convoso report and click "Open Dashboard" from the popup.');
                     return;
                 }
 
-                if (response && response.status === 'ok' && response.data) {
+                chrome.tabs.sendMessage(convosoTabs[0].id, { action: 'requestData' }, (response) => {
+                    if (chrome.runtime.lastError || !response || response.status !== 'ok') {
+                        showError('Could not load data. Open a Convoso report and use the popup to open the dashboard.');
+                        return;
+                    }
                     currentData = response.data;
                     renderDashboard();
                     showContent();
-                } else {
-                    showError('No report data found. Make sure a report is loaded.');
-                }
+                });
             });
-        });
+        }
     });
 }
 

@@ -156,14 +156,33 @@ function notifyContentScript(action) {
 
 /**
  * Open full dashboard in new window
+ * First fetches data from content script and stores it for the dashboard to read
  */
 function openDashboard() {
-    const dashboardUrl = chrome.runtime.getURL('dashboard.html');
-    chrome.windows.create({
-        url: dashboardUrl,
-        type: 'popup',
-        width: 1280,
-        height: 900
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (!tabs[0] || !tabs[0].url.includes('convoso.com')) {
+            alert('Please navigate to a Convoso report page first.');
+            return;
+        }
+
+        // Fetch data from content script
+        chrome.tabs.sendMessage(tabs[0].id, { action: 'requestData' }, (response) => {
+            if (chrome.runtime.lastError || !response || response.status !== 'ok') {
+                alert('Could not get data from page. Try refreshing the Convoso report.');
+                return;
+            }
+
+            // Store data for dashboard to read
+            chrome.storage.local.set({ dashboardData: response.data }, () => {
+                const dashboardUrl = chrome.runtime.getURL('dashboard.html');
+                chrome.windows.create({
+                    url: dashboardUrl,
+                    type: 'popup',
+                    width: 1280,
+                    height: 900
+                });
+            });
+        });
     });
 }
 

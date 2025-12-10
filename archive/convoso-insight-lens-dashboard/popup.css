@@ -1,0 +1,334 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-color: #f8f9fa;
+    color: #333;
+    width: 400px;
+}
+
+.popup-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.header {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    padding: 16px;
+    text-align: center;
+}
+
+.header h1 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.header .subtitle {
+    font-size: 12px;
+    opacity: 0.9;
+}
+
+.content {
+    padding: 16px;
+    overflow-y: auto;
+    max-height: 600px;
+}
+
+/* Toggle Section */
+.toggle-section {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 16px;
+}
+
+.toggle-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+}
+
+.toggle-label input[type="checkbox"] {
+    display: none;
+}
+
+.toggle-switch {
+    position: relative;
+    width: 40px;
+    height: 24px;
+    background-color: #ccc;
+    border-radius: 12px;
+    margin-right: 12px;
+    transition: background-color 0.3s ease;
+}
+
+.toggle-switch::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background-color: white;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: left 0.3s ease;
+}
+
+.toggle-label input[type="checkbox"]:checked + .toggle-switch {
+    background-color: #10b981;
+}
+
+.toggle-label input[type="checkbox"]:checked + .toggle-switch::after {
+    left: 18px;
+}
+
+.toggle-text {
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.toggle-description {
+    font-size: 12px;
+    color: #666;
+    margin-top: 8px;
+    margin-left: 52px;
+}
+
+/* Info Section */
+.info-section {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 16px;
+}
+
+.info-section h2 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #1f2937;
+}
+
+.feature-list {
+    list-style: none;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #555;
+}
+
+.feature-list li {
+    margin-bottom: 6px;
+    padding-left: 16px;
+    position: relative;
+}
+
+.feature-list li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: #10b981;
+    font-weight: bold;
+}
+
+/* Legend Section */
+.legend-section {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 16px;
+}
+
+.legend-section h3 {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #1f2937;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 12px;
+}
+
+.legend-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+.legend-color.superstar {
+    background-color: #d1fae5;
+    border: 1px solid #10b981;
+}
+
+.legend-color.grinder {
+    background-color: #fee2e2;
+    border: 1px solid #ef4444;
+}
+
+.legend-color.ghost {
+    background-color: #f3f4f6;
+    border: 1px solid #d1d5db;
+    opacity: 0.5;
+}
+
+/* Report Section */
+.report-section {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 16px;
+}
+
+.report-section h3 {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #1f2937;
+}
+
+.report-description {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 10px;
+    line-height: 1.4;
+}
+
+.report-button {
+    width: 100%;
+    padding: 10px 12px;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-bottom: 8px;
+}
+
+.report-button:hover {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+.report-button:active {
+    transform: scale(0.98);
+}
+
+.report-status {
+    font-size: 11px;
+    color: #666;
+    text-align: center;
+    min-height: 16px;
+}
+
+.report-status.success {
+    color: #10b981;
+    font-weight: 600;
+}
+
+.report-status.error {
+    color: #ef4444;
+    font-weight: 600;
+}
+
+/* Config Section */
+.config-section {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 16px;
+}
+
+.config-section h3 {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #1f2937;
+}
+
+.config-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 12px;
+}
+
+.config-item label {
+    font-weight: 500;
+    color: #555;
+}
+
+.config-item input[type="number"] {
+    width: 60px;
+    padding: 4px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 12px;
+    text-align: center;
+}
+
+.config-item input[type="number"]:focus {
+    outline: none;
+    border-color: #10b981;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1);
+}
+
+.save-button {
+    width: 100%;
+    padding: 8px 12px;
+    background-color: #10b981;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    margin-top: 8px;
+}
+
+.save-button:hover {
+    background-color: #059669;
+}
+
+.save-button:active {
+    background-color: #047857;
+}
+
+/* Footer */
+.footer {
+    text-align: center;
+    padding-top: 12px;
+    border-top: 1px solid #e5e7eb;
+    font-size: 11px;
+    color: #999;
+}
+
+.version {
+    margin-bottom: 4px;
+}
+
+.note {
+    font-style: italic;
+}

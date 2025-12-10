@@ -1,0 +1,53 @@
+/* --- SUMMARY TABLES (The Visual Bars) --- */
+.insight-cell-wrapper {
+    position: relative;
+    z-index: 1;
+    padding: 2px 4px;
+    display: block;
+}
+
+.insight-bar {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    z-index: -1; /* Sits behind the text */
+    border-radius: 4px;
+    opacity: 0.25; /* Subtle tint */
+    transition: width 0.5s ease-in-out;
+}
+
+.insight-bar-red { background-color: #ef4444; }   /* Red for waste */
+.insight-bar-green { background-color: #10b981; } /* Green for success */
+
+/* --- AGENT DETAIL TABLES (The Heatmap) --- */
+/* The Superstar: High Success Rate */
+tr.insight-row-superstar td {
+    background-color: #d1fae5 !important;
+    color: #064e3b !important;
+    border-top: 1px solid #10b981 !important;
+    border-bottom: 1px solid #10b981 !important;
+}
+
+/* The Grinder: High Dials, Low Success (Spinning Wheels) */
+tr.insight-row-grinder td {
+    background-color: #fee2e2 !important;
+    color: #7f1d1d !important;
+    border-top: 1px solid #ef4444 !important;
+}
+
+/* The Ghost: Not enough data yet */
+tr.insight-row-ghost {
+    opacity: 0.4;
+    filter: grayscale(100%);
+}
+
+/* Badge for clarity */
+.insight-badge {
+    font-size: 0.8em;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 8px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+.badge-waste { background: #ef4444; color: white; }
+.badge-star { background: #10b981; color: white; }

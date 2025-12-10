@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Convoso Insight Dashboard</title>
+    <link rel="stylesheet" href="dashboard.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <div class="dashboard-header">
+            <h1>Convoso Insight Dashboard</h1>
+            <div class="header-actions">
+                <button id="refreshBtn" class="action-btn refresh-btn" title="Refresh Data">
+                    <span class="icon">🔄</span>
+                </button>
+                <button id="closeBtn" class="action-btn close-btn" title="Close">
+                    <span class="icon">✕</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading data...</p>
+        </div>
+
+        <!-- Main Content (Hidden until data loads) -->
+        <div id="mainContent" class="main-content" style="display: none;">
+            <!-- Summary Cards -->
+            <div class="summary-cards">
+                <div class="card metric-card">
+                    <div class="card-label">Total Agents</div>
+                    <div class="card-value" id="totalAgents">0</div>
+                </div>
+                <div class="card metric-card">
+                    <div class="card-label">Superstars</div>
+                    <div class="card-value superstar" id="superstarCount">0</div>
+                </div>
+                <div class="card metric-card">
+                    <div class="card-label">Grinders</div>
+                    <div class="card-value grinder" id="grinderCount">0</div>
+                </div>
+                <div class="card metric-card">
+                    <div class="card-label">Waste Lists</div>
+                    <div class="card-value waste" id="wasteCount">0</div>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="agents">Agents Performance</button>
+                <button class="tab-btn" data-tab="lists">Lists Summary</button>
+                <button class="tab-btn" data-tab="charts">Analytics</button>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="tab-content">
+                <!-- Agents Tab -->
+                <div id="agents-tab" class="tab-pane active">
+                    <div class="table-container">
+                        <table id="agentsTable" class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Insight</th>
+                                    <th>User</th>
+                                    <th>Dialed</th>
+                                    <th>Success</th>
+                                    <th>Success Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody id="agentsTableBody">
+                                <!-- Populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Lists Tab -->
+                <div id="lists-tab" class="tab-pane">
+                    <div class="lists-container">
+                        <div class="lists-section">
+                            <h3>Top Success Lists</h3>
+                            <div id="topListsContainer" class="lists-grid">
+                                <!-- Populated by JavaScript -->
+                            </div>
+                        </div>
+                        <div class="lists-section">
+                            <h3>Lowest Success Lists (Waste)</h3>
+                            <div id="lowestListsContainer" class="lists-grid">
+                                <!-- Populated by JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Tab -->
+                <div id="charts-tab" class="tab-pane">
+                    <div class="charts-grid">
+                        <div class="chart-container">
+                            <h3>Agent Distribution</h3>
+                            <canvas id="agentDistributionChart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <h3>Success Rate Distribution</h3>
+                            <canvas id="successRateChart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <h3>Top 10 Agents by Success Rate</h3>
+                            <canvas id="topAgentsChart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <h3>List Performance</h3>
+                            <canvas id="listPerformanceChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error State -->
+        <div id="errorState" class="error-state" style="display: none;">
+            <div class="error-icon">⚠️</div>
+            <p id="errorMessage">Unable to load data. Please make sure you are on a Convoso report page.</p>
+            <button id="retryBtn" class="action-btn retry-btn">Retry</button>
+        </div>
+    </div>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>

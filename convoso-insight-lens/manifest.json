@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Convoso Insight Lens",
-  "version": "1.0.0",
-  "description": "Transforms Convoso reports into human-readable dashboards with calculated KPIs, heatmaps, and visual indicators.",
+  "version": "2.0.0",
+  "description": "Injects APPT % and LXFER % conversion columns directly into Convoso reports.",
   "permissions": [
     "activeTab",
     "scripting",
@@ -15,19 +15,7 @@
     {
       "matches": ["*://*.convoso.com/*"],
       "js": ["content.js"],
-      "css": ["styles.css"],
       "run_at": "document_idle"
-    }
-  ],
-  "web_accessible_resources": [
-    {
-      "resources": [
-        "dashboard.html",
-        "dashboard.css",
-        "dashboard.js",
-        "lib/chart.min.js"
-      ],
-      "matches": ["<all_urls>"]
     }
   ],
   "action": {

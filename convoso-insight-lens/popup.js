@@ -1,209 +1,114 @@
 /**
  * Convoso Insight Lens - Popup Script
- * Handles popup UI, configuration, and communication with content script.
+ * Simple toggle control for inline column injection
  */
-
-// =============================================================================
-// INITIALIZATION
-// =============================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    loadConfiguration();
-    setupEventListeners();
-    checkConnection();
-});
+    const statusText = document.getElementById('statusText');
+    const statusDot = document.getElementById('statusDot');
+    const toggleBtn = document.getElementById('toggleBtn');
+    const refreshBtn = document.getElementById('refreshBtn');
 
-// =============================================================================
-// CONFIGURATION MANAGEMENT
-// =============================================================================
+    // Check current status
+    checkStatus();
 
-const DEFAULT_CONFIG = {
-    enabled: true,
-    wasteThreshold: 15,
-    superstarRate: 20,
-    superstarSuccessCount: 10,
-    grinderDials: 150,
-    ghostDials: 20
-};
-
-/**
- * Load saved configuration from Chrome storage
- */
-function loadConfiguration() {
-    chrome.storage.sync.get(DEFAULT_CONFIG, (result) => {
-        document.getElementById('enableToggle').checked = result.enabled !== false;
-        document.getElementById('wasteThreshold').value = result.wasteThreshold || 15;
-        document.getElementById('superstarRate').value = result.superstarRate || 20;
-        document.getElementById('superstarCount').value = result.superstarSuccessCount || 10;
-        document.getElementById('grinderDials').value = result.grinderDials || 150;
-        document.getElementById('ghostDials').value = result.ghostDials || 20;
-    });
-}
-
-/**
- * Save configuration to Chrome storage
- */
-function saveConfiguration() {
-    const config = {
-        enabled: document.getElementById('enableToggle').checked,
-        wasteThreshold: parseInt(document.getElementById('wasteThreshold').value) || 15,
-        superstarRate: parseInt(document.getElementById('superstarRate').value) || 20,
-        superstarSuccessCount: parseInt(document.getElementById('superstarCount').value) || 10,
-        grinderDials: parseInt(document.getElementById('grinderDials').value) || 150,
-        ghostDials: parseInt(document.getElementById('ghostDials').value) || 20
-    };
-
-    chrome.storage.sync.set(config, () => {
-        // Visual feedback
-        const saveBtn = document.getElementById('saveConfig');
-        const originalText = saveBtn.textContent;
-        saveBtn.textContent = '✓ Saved!';
-        saveBtn.classList.add('saved');
-
-        setTimeout(() => {
-            saveBtn.textContent = originalText;
-            saveBtn.classList.remove('saved');
-        }, 1500);
-
-        // Notify content script
-        notifyContentScript('configUpdated');
-    });
-}
-
-// =============================================================================
-// CONNECTION & DATA
-// =============================================================================
-
-/**
- * Check if we're connected to a Convoso page and fetch quick stats
- */
-function checkConnection() {
-    const statusBar = document.getElementById('statusBar');
-    const quickStats = document.getElementById('quickStats');
-
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (!tabs[0]) {
-            setStatus('error', 'No active tab');
-            return;
-        }
-
-        const url = tabs[0].url || '';
-        
-        // Check if on Convoso
-        if (!url.includes('convoso.com')) {
-            setStatus('inactive', 'Not on Convoso');
-            quickStats.style.display = 'none';
-            return;
-        }
-
-        // Try to ping content script
-        chrome.tabs.sendMessage(tabs[0].id, { action: 'requestData' }, (response) => {
-            if (chrome.runtime.lastError) {
-                setStatus('error', 'Extension not loaded on page');
-                quickStats.style.display = 'none';
-                return;
-            }
-
-            if (response && response.status === 'ok' && response.data) {
-                setStatus('connected', 'Connected');
-                displayQuickStats(response.data.summary);
-                quickStats.style.display = 'grid';
-            } else {
-                setStatus('inactive', 'No report data found');
-                quickStats.style.display = 'none';
+    // Toggle button
+    toggleBtn.addEventListener('click', () => {
+        sendToContent('toggle', (response) => {
+            if (response && response.status === 'ok') {
+                updateUI(response.enabled, response.columnsInjected);
             }
         });
     });
-}
+
+    // Refresh button
+    refreshBtn.addEventListener('click', () => {
+        sendToContent('refresh', () => {
+            checkStatus();
+        });
+    });
+});
 
 /**
- * Update status bar UI
+ * Check status from content script
  */
-function setStatus(type, message) {
-    const statusBar = document.getElementById('statusBar');
-    statusBar.className = `status-bar status-${type}`;
-    statusBar.querySelector('.status-text').textContent = message;
-}
+function checkStatus() {
+    const statusText = document.getElementById('statusText');
+    const statusDot = document.getElementById('statusDot');
 
-/**
- * Display quick stats from report data
- */
-function displayQuickStats(summary) {
-    if (!summary) return;
-    
-    document.getElementById('statAgents').textContent = summary.totalAgents || 0;
-    document.getElementById('statSuperstars').textContent = summary.superstars || 0;
-    document.getElementById('statGrinders').textContent = summary.grinders || 0;
-    document.getElementById('statWaste').textContent = summary.wasteLists || 0;
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (!tabs[0]) {
+            showError('No active tab');
+            return;
+        }
+
+        if (!tabs[0].url.includes('convoso.com')) {
+            showError('Not on Convoso');
+            return;
+        }
+
+        chrome.tabs.sendMessage(tabs[0].id, { action: 'getStatus' }, (response) => {
+            if (chrome.runtime.lastError) {
+                showError('Refresh page');
+                return;
+            }
+
+            if (response && response.status === 'ok') {
+                updateUI(response.enabled, response.columnsInjected);
+            }
+        });
+    });
 }
 
 /**
  * Send message to content script
  */
-function notifyContentScript(action) {
+function sendToContent(action, callback) {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0]) {
-            chrome.tabs.sendMessage(tabs[0].id, { action }).catch(() => {
-                // Content script not available - that's okay
-            });
-        }
+        if (!tabs[0]) return;
+        
+        chrome.tabs.sendMessage(tabs[0].id, { action }, (response) => {
+            if (callback) callback(response);
+        });
     });
 }
-
-// =============================================================================
-// DASHBOARD
-// =============================================================================
 
 /**
- * Open full dashboard in new window
- * First fetches data from content script and stores it for the dashboard to read
+ * Update UI based on status
  */
-function openDashboard() {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (!tabs[0] || !tabs[0].url.includes('convoso.com')) {
-            alert('Please navigate to a Convoso report page first.');
-            return;
-        }
+function updateUI(enabled, columnsInjected) {
+    const statusText = document.getElementById('statusText');
+    const statusDot = document.getElementById('statusDot');
+    const toggleBtn = document.getElementById('toggleBtn');
 
-        // Fetch data from content script
-        chrome.tabs.sendMessage(tabs[0].id, { action: 'requestData' }, (response) => {
-            if (chrome.runtime.lastError || !response || response.status !== 'ok') {
-                alert('Could not get data from page. Try refreshing the Convoso report.');
-                return;
-            }
-
-            // Store data for dashboard to read
-            chrome.storage.local.set({ dashboardData: response.data }, () => {
-                const dashboardUrl = chrome.runtime.getURL('dashboard.html');
-                chrome.windows.create({
-                    url: dashboardUrl,
-                    type: 'popup',
-                    width: 1280,
-                    height: 900
-                });
-            });
-        });
-    });
+    if (enabled && columnsInjected) {
+        statusText.textContent = 'Active - Columns Added';
+        statusDot.className = 'status-dot active';
+        toggleBtn.textContent = 'Turn OFF';
+        toggleBtn.className = 'btn btn-off';
+    } else if (enabled) {
+        statusText.textContent = 'Ready';
+        statusDot.className = 'status-dot ready';
+        toggleBtn.textContent = 'Turn ON';
+        toggleBtn.className = 'btn btn-on';
+    } else {
+        statusText.textContent = 'Disabled';
+        statusDot.className = 'status-dot off';
+        toggleBtn.textContent = 'Turn ON';
+        toggleBtn.className = 'btn btn-on';
+    }
 }
 
-// =============================================================================
-// EVENT LISTENERS
-// =============================================================================
+/**
+ * Show error state
+ */
+function showError(message) {
+    const statusText = document.getElementById('statusText');
+    const statusDot = document.getElementById('statusDot');
+    const toggleBtn = document.getElementById('toggleBtn');
 
-function setupEventListeners() {
-    // Toggle switch - auto-save
-    document.getElementById('enableToggle').addEventListener('change', saveConfiguration);
-
-    // Save config button
-    document.getElementById('saveConfig').addEventListener('click', saveConfiguration);
-
-    // Dashboard button
-    document.getElementById('openDashboard').addEventListener('click', openDashboard);
-
-    // Enter key in config inputs
-    document.querySelectorAll('.config-content input').forEach(input => {
-        input.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') saveConfiguration();
-        });
-    });
+    statusText.textContent = message;
+    statusDot.className = 'status-dot error';
+    toggleBtn.disabled = true;
+    toggleBtn.textContent = 'Unavailable';
 }

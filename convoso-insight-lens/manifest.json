@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "Convoso Insight Lens",
+  "version": "1.0.0",
+  "description": "Transforms Convoso reports into human-readable dashboards with calculated KPIs, heatmaps, and visual indicators.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "*://*.convoso.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["*://*.convoso.com/*"],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "dashboard.html",
+        "dashboard.css",
+        "dashboard.js",
+        "lib/chart.min.js"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Convoso Insight Lens",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

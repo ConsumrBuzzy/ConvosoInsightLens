@@ -343,6 +343,11 @@ const observer = new MutationObserver(() => {
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     switch (request.action) {
+        case 'openOverlay':
+            showOverlay();
+            sendResponse({ status: 'ok' });
+            break;
+            
         case 'toggle':
             toggleInsightLens();
             sendResponse({ status: 'ok', enabled: INSIGHT_CONFIG.enabled });
@@ -369,15 +374,474 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 // =============================================================================
+// OVERLAY DASHBOARD
+// =============================================================================
+
+let overlayVisible = false;
+
+/**
+ * Create the overlay dashboard
+ */
+function createOverlayDashboard() {
+    if (document.getElementById('insight-lens-overlay')) return;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'insight-lens-overlay';
+    overlay.innerHTML = `
+        <div class="ils-overlay-backdrop"></div>
+        <div class="ils-overlay-panel">
+            <div class="ils-header">
+                <h1>📊 Convoso Insight Lens</h1>
+                <div class="ils-header-actions">
+                    <button id="ils-refresh-btn" class="ils-btn">↻ Refresh</button>
+                    <button id="ils-export-btn" class="ils-btn">📥 Export CSV</button>
+                    <button id="ils-close-btn" class="ils-btn ils-btn-close">✕</button>
+                </div>
+            </div>
+            <div class="ils-content">
+                <div class="ils-loading">Loading data...</div>
+                <div class="ils-table-container" style="display:none;">
+                    <table class="ils-table">
+                        <thead id="ils-table-head"></thead>
+                        <tbody id="ils-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="ils-footer">
+                <span><strong>APPT %</strong> = APPT ÷ Contacts</span>
+                <span><strong>LXFER %</strong> = LXFER ÷ Contacts</span>
+                <span><strong>Contact %</strong> = Contacts ÷ Dialed</span>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Event listeners
+    document.getElementById('ils-close-btn').addEventListener('click', hideOverlay);
+    document.getElementById('ils-refresh-btn').addEventListener('click', () => populateOverlay());
+    document.getElementById('ils-export-btn').addEventListener('click', exportCSV);
+    document.querySelector('.ils-overlay-backdrop').addEventListener('click', hideOverlay);
+
+    // Inject styles
+    injectOverlayStyles();
+}
+
+/**
+ * Inject overlay CSS
+ */
+function injectOverlayStyles() {
+    if (document.getElementById('ils-overlay-styles')) return;
+
+    const style = document.createElement('style');
+    style.id = 'ils-overlay-styles';
+    style.textContent = `
+        #insight-lens-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 999999;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        #insight-lens-overlay.visible {
+            display: block;
+        }
+        .ils-overlay-backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+        }
+        .ils-overlay-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            bottom: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.25);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .ils-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 24px;
+            background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+            color: white;
+        }
+        .ils-header h1 {
+            font-size: 20px;
+            margin: 0;
+        }
+        .ils-header-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .ils-btn {
+            padding: 8px 14px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        .ils-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        .ils-btn-close {
+            background: #ef4444;
+            font-size: 16px;
+            padding: 8px 12px;
+        }
+        .ils-btn-close:hover {
+            background: #dc2626;
+        }
+        .ils-content {
+            flex: 1;
+            overflow: auto;
+            padding: 0;
+        }
+        .ils-loading {
+            text-align: center;
+            padding: 60px;
+            color: #6b7280;
+            font-size: 16px;
+        }
+        .ils-table-container {
+            overflow: auto;
+            height: 100%;
+        }
+        .ils-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .ils-table th, .ils-table td {
+            padding: 8px 10px;
+            border: 1px solid #e5e7eb;
+            text-align: left;
+            white-space: nowrap;
+        }
+        .ils-table thead th {
+            background: #f3f4f6;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .ils-table .ils-list-header {
+            background: #dbeafe;
+            color: #1e40af;
+            text-align: center;
+            font-weight: 700;
+            border-left: 3px solid #3b82f6;
+        }
+        .ils-table .ils-metric-header {
+            font-size: 10px;
+            color: #6b7280;
+            background: #f9fafb;
+        }
+        .ils-table .ils-agent-cell {
+            font-weight: 600;
+            background: #fafafa;
+            position: sticky;
+            left: 0;
+            z-index: 5;
+            border-right: 2px solid #d1d5db;
+        }
+        .ils-table .ils-divider {
+            border-left: 3px solid #3b82f6;
+        }
+        .ils-table .ils-pct {
+            background: #fef9c3;
+            font-weight: 600;
+            text-align: right;
+        }
+        .ils-table .ils-pct-good {
+            background: #bbf7d0;
+            color: #166534;
+        }
+        .ils-table .ils-pct-bad {
+            background: #fecaca;
+            color: #991b1b;
+        }
+        .ils-table tbody tr:hover td {
+            background: #f0f9ff;
+        }
+        .ils-table tbody tr:hover .ils-agent-cell {
+            background: #e0f2fe;
+        }
+        .ils-footer {
+            display: flex;
+            gap: 24px;
+            padding: 12px 24px;
+            background: #f8fafc;
+            border-top: 1px solid #e5e7eb;
+            font-size: 12px;
+            color: #64748b;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+/**
+ * Show the overlay dashboard
+ */
+function showOverlay() {
+    createOverlayDashboard();
+    document.getElementById('insight-lens-overlay').classList.add('visible');
+    overlayVisible = true;
+    populateOverlay();
+}
+
+/**
+ * Hide the overlay dashboard
+ */
+function hideOverlay() {
+    const overlay = document.getElementById('insight-lens-overlay');
+    if (overlay) {
+        overlay.classList.remove('visible');
+    }
+    overlayVisible = false;
+}
+
+/**
+ * Toggle overlay visibility
+ */
+function toggleOverlay() {
+    if (overlayVisible) {
+        hideOverlay();
+    } else {
+        showOverlay();
+    }
+}
+
+/**
+ * Populate the overlay with data
+ */
+function populateOverlay() {
+    const loading = document.querySelector('.ils-loading');
+    const tableContainer = document.querySelector('.ils-table-container');
+    const thead = document.getElementById('ils-table-head');
+    const tbody = document.getElementById('ils-table-body');
+
+    loading.style.display = 'block';
+    tableContainer.style.display = 'none';
+
+    // Extract data from all tables on the page
+    const data = extractAllTableData();
+    
+    if (data.agents.size === 0) {
+        loading.textContent = 'No agent data found. Make sure a report is loaded.';
+        return;
+    }
+
+    // Build pivot table
+    const lists = Array.from(data.lists).sort();
+    const metrics = ['Dialed', 'Contacts', 'Contact%', 'APPT', 'APPT%', 'LXFER', 'LXFER%'];
+
+    // Header row 1: List names
+    let header1 = '<tr><th rowspan="2" class="ils-agent-cell">Agent</th>';
+    header1 += `<th colspan="${metrics.length}" class="ils-list-header">TOTALS</th>`;
+    lists.forEach(list => {
+        const shortName = list.length > 25 ? list.substring(0, 25) + '...' : list;
+        header1 += `<th colspan="${metrics.length}" class="ils-list-header">${escapeHtml(shortName)}</th>`;
+    });
+    header1 += '</tr>';
+
+    // Header row 2: Metric names
+    let header2 = '<tr>';
+    const metricHeaders = metrics.map(m => `<th class="ils-metric-header">${m}</th>`).join('');
+    header2 += metricHeaders; // Totals
+    lists.forEach(() => {
+        header2 += metricHeaders;
+    });
+    header2 += '</tr>';
+
+    thead.innerHTML = header1 + header2;
+
+    // Data rows
+    let bodyHtml = '';
+    const sortedAgents = Array.from(data.agents.entries())
+        .sort((a, b) => b[1].totals.dialed - a[1].totals.dialed);
+
+    sortedAgents.forEach(([agentName, agentData]) => {
+        bodyHtml += '<tr>';
+        bodyHtml += `<td class="ils-agent-cell">${escapeHtml(agentName)}</td>`;
+        
+        // Totals
+        bodyHtml += renderMetricCells(agentData.totals, false);
+
+        // Each list
+        lists.forEach(listName => {
+            const listData = agentData.lists.get(listName) || { dialed: 0, contacts: 0, appt: 0, lxfer: 0 };
+            bodyHtml += renderMetricCells(listData, true);
+        });
+
+        bodyHtml += '</tr>';
+    });
+
+    tbody.innerHTML = bodyHtml;
+
+    loading.style.display = 'none';
+    tableContainer.style.display = 'block';
+}
+
+/**
+ * Render metric cells for a data object
+ */
+function renderMetricCells(data, addDivider) {
+    const contactPct = data.dialed > 0 ? (data.contacts / data.dialed) * 100 : 0;
+    const apptPct = data.contacts > 0 ? (data.appt / data.contacts) * 100 : 0;
+    const lxferPct = data.contacts > 0 ? (data.lxfer / data.contacts) * 100 : 0;
+
+    const divider = addDivider ? 'ils-divider' : '';
+    const apptClass = apptPct >= 10 ? 'ils-pct-good' : (apptPct < 2 && data.contacts > 0 ? 'ils-pct-bad' : '');
+    const lxferClass = lxferPct >= 10 ? 'ils-pct-good' : (lxferPct < 2 && data.contacts > 0 ? 'ils-pct-bad' : '');
+
+    return `
+        <td class="${divider}">${data.dialed}</td>
+        <td>${data.contacts}</td>
+        <td class="ils-pct">${contactPct.toFixed(1)}%</td>
+        <td>${data.appt}</td>
+        <td class="ils-pct ${apptClass}">${apptPct.toFixed(1)}%</td>
+        <td>${data.lxfer}</td>
+        <td class="ils-pct ${lxferClass}">${lxferPct.toFixed(1)}%</td>
+    `;
+}
+
+/**
+ * Extract all table data from the page
+ */
+function extractAllTableData() {
+    const agents = new Map();
+    const lists = new Set();
+
+    document.querySelectorAll('table').forEach(table => {
+        const headerRow = table.querySelector('thead tr');
+        if (!headerRow) return;
+
+        const headerCells = Array.from(headerRow.querySelectorAll('th'));
+        const headers = headerCells.map(th => th.innerText.trim().toLowerCase());
+
+        // Find column indices
+        const userIdx = headers.findIndex(h => h === 'user' || h === 'agent');
+        const listIdx = headers.findIndex(h => h.includes('list'));
+        const dialedIdx = findColumnIndex(headers, ['dialed']);
+        const contactsIdx = findColumnIndex(headers, ['contacts', 'contact']);
+        const apptIdx = findColumnIndex(headers, ['appt', 'appointment']);
+        const lxferIdx = findColumnIndex(headers, ['lxfer', 'live transfer']);
+
+        if (userIdx === -1) return;
+
+        table.querySelectorAll('tbody tr').forEach(row => {
+            const cells = Array.from(row.querySelectorAll('td'));
+            if (cells.length < 3) return;
+
+            const agentName = cells[userIdx]?.innerText.trim() || 'Unknown';
+            const listName = listIdx !== -1 ? (cells[listIdx]?.innerText.trim() || 'Default') : 'All';
+            
+            lists.add(listName);
+
+            if (!agents.has(agentName)) {
+                agents.set(agentName, {
+                    lists: new Map(),
+                    totals: { dialed: 0, contacts: 0, appt: 0, lxfer: 0 }
+                });
+            }
+
+            const agentData = agents.get(agentName);
+            const dialed = dialedIdx !== -1 ? parseNum(cells[dialedIdx]?.innerText) : 0;
+            const contacts = contactsIdx !== -1 ? parseNum(cells[contactsIdx]?.innerText) : 0;
+            const appt = apptIdx !== -1 ? parseNum(cells[apptIdx]?.innerText) : 0;
+            const lxfer = lxferIdx !== -1 ? parseNum(cells[lxferIdx]?.innerText) : 0;
+
+            // Aggregate per list
+            if (!agentData.lists.has(listName)) {
+                agentData.lists.set(listName, { dialed: 0, contacts: 0, appt: 0, lxfer: 0 });
+            }
+            const listData = agentData.lists.get(listName);
+            listData.dialed += dialed;
+            listData.contacts += contacts;
+            listData.appt += appt;
+            listData.lxfer += lxfer;
+
+            // Aggregate totals
+            agentData.totals.dialed += dialed;
+            agentData.totals.contacts += contacts;
+            agentData.totals.appt += appt;
+            agentData.totals.lxfer += lxfer;
+        });
+    });
+
+    return { agents, lists };
+}
+
+/**
+ * Escape HTML
+ */
+function escapeHtml(text) {
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return String(text).replace(/[&<>"']/g, m => map[m]);
+}
+
+/**
+ * Export data to CSV
+ */
+function exportCSV() {
+    const data = extractAllTableData();
+    const lists = Array.from(data.lists).sort();
+    
+    let csv = 'Agent,List,Dialed,Contacts,Contact%,APPT,APPT%,LXFER,LXFER%\n';
+    
+    data.agents.forEach((agentData, agentName) => {
+        agentData.lists.forEach((listData, listName) => {
+            const contactPct = listData.dialed > 0 ? (listData.contacts / listData.dialed) * 100 : 0;
+            const apptPct = listData.contacts > 0 ? (listData.appt / listData.contacts) * 100 : 0;
+            const lxferPct = listData.contacts > 0 ? (listData.lxfer / listData.contacts) * 100 : 0;
+            
+            csv += `"${agentName}","${listName}",${listData.dialed},${listData.contacts},${contactPct.toFixed(2)}%,${listData.appt},${apptPct.toFixed(2)}%,${listData.lxfer},${lxferPct.toFixed(2)}%\n`;
+        });
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `convoso-insight-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    showNotification('CSV exported!');
+}
+
+// =============================================================================
 // INITIALIZATION
 // =============================================================================
 
 console.log('[Insight Lens] Content script loaded');
 
-// Create toggle button
+// Create toggle button (now opens overlay)
 createToggleButton();
 
-// Initial scan
+// Update toggle button to open overlay instead
+document.getElementById('insight-lens-toggle').removeEventListener('click', toggleInsightLens);
+document.getElementById('insight-lens-toggle').addEventListener('click', toggleOverlay);
+document.getElementById('insight-lens-toggle').innerHTML = '📊 Open Dashboard';
+
+// Initial scan for inline columns
 setTimeout(scanAndInject, 1000);
 
 // Start observing for dynamic content

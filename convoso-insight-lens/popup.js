@@ -1,30 +1,18 @@
 /**
  * Convoso Insight Lens - Popup Script
- * Simple toggle control for inline column injection
+ * Opens overlay dashboard on Convoso page
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-    const statusText = document.getElementById('statusText');
-    const statusDot = document.getElementById('statusDot');
-    const toggleBtn = document.getElementById('toggleBtn');
-    const refreshBtn = document.getElementById('refreshBtn');
-
     // Check current status
     checkStatus();
 
-    // Toggle button
-    toggleBtn.addEventListener('click', () => {
-        sendToContent('toggle', (response) => {
+    // Open Dashboard button
+    document.getElementById('openDashboard').addEventListener('click', () => {
+        sendToContent('openOverlay', (response) => {
             if (response && response.status === 'ok') {
-                updateUI(response.enabled, response.columnsInjected);
+                window.close(); // Close popup after opening overlay
             }
-        });
-    });
-
-    // Refresh button
-    refreshBtn.addEventListener('click', () => {
-        sendToContent('refresh', () => {
-            checkStatus();
         });
     });
 });
@@ -79,24 +67,9 @@ function sendToContent(action, callback) {
 function updateUI(enabled, columnsInjected) {
     const statusText = document.getElementById('statusText');
     const statusDot = document.getElementById('statusDot');
-    const toggleBtn = document.getElementById('toggleBtn');
 
-    if (enabled && columnsInjected) {
-        statusText.textContent = 'Active - Columns Added';
-        statusDot.className = 'status-dot active';
-        toggleBtn.textContent = 'Turn OFF';
-        toggleBtn.className = 'btn btn-off';
-    } else if (enabled) {
-        statusText.textContent = 'Ready';
-        statusDot.className = 'status-dot ready';
-        toggleBtn.textContent = 'Turn ON';
-        toggleBtn.className = 'btn btn-on';
-    } else {
-        statusText.textContent = 'Disabled';
-        statusDot.className = 'status-dot off';
-        toggleBtn.textContent = 'Turn ON';
-        toggleBtn.className = 'btn btn-on';
-    }
+    statusText.textContent = 'Ready - Click to open dashboard';
+    statusDot.className = 'status-dot active';
 }
 
 /**
@@ -105,10 +78,10 @@ function updateUI(enabled, columnsInjected) {
 function showError(message) {
     const statusText = document.getElementById('statusText');
     const statusDot = document.getElementById('statusDot');
-    const toggleBtn = document.getElementById('toggleBtn');
+    const btn = document.getElementById('openDashboard');
 
     statusText.textContent = message;
     statusDot.className = 'status-dot error';
-    toggleBtn.disabled = true;
-    toggleBtn.textContent = 'Unavailable';
+    btn.disabled = true;
+    btn.textContent = 'Unavailable';
 }

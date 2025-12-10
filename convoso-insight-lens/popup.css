@@ -87,33 +87,14 @@ header .subtitle {
     transition: all 0.2s;
 }
 
-.btn-on {
+.btn-primary {
     background: #2563eb;
     color: white;
+    width: 100%;
 }
 
-.btn-on:hover {
+.btn-primary:hover {
     background: #1d4ed8;
-}
-
-.btn-off {
-    background: #dc2626;
-    color: white;
-}
-
-.btn-off:hover {
-    background: #b91c1c;
-}
-
-.btn-secondary {
-    background: #e2e8f0;
-    color: #475569;
-    flex: 0 0 auto;
-    padding: 10px 12px;
-}
-
-.btn-secondary:hover {
-    background: #cbd5e1;
 }
 
 .btn:disabled {

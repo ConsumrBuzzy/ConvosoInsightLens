@@ -343,27 +343,119 @@ body {
 }
 
 /* =============================================================================
-   KPIs TAB
+   PIVOT TABLE - Agent × List
    ============================================================================= */
 
-.kpi-header {
-    margin-bottom: 20px;
+.pivot-header {
+    margin-bottom: 16px;
 }
 
-.kpi-header h2 {
+.pivot-header h2 {
     font-size: 18px;
     margin-bottom: 4px;
 }
 
-.kpi-header p {
+.pivot-header p {
     color: var(--color-text-light);
     font-size: 13px;
 }
 
-/* Highlight calculated columns */
-.data-table .calculated {
+.pivot-table-container {
+    overflow-x: auto;
+    max-width: 100%;
+}
+
+.pivot-table {
+    font-size: 12px;
+}
+
+.pivot-table th,
+.pivot-table td {
+    padding: 8px 10px;
+    white-space: nowrap;
+}
+
+.pivot-table th {
+    position: sticky;
+    top: 0;
+    background: var(--color-bg);
+    z-index: 10;
+}
+
+.pivot-table th.agent-header {
+    position: sticky;
+    left: 0;
+    background: #e5e7eb;
+    z-index: 20;
+}
+
+.pivot-table td.agent-cell {
+    position: sticky;
+    left: 0;
+    background: white;
+    font-weight: 600;
+    z-index: 5;
+    border-right: 2px solid var(--color-border);
+}
+
+.pivot-table .list-group {
+    text-align: center;
+    background: #f0f9ff;
+    border-bottom: 2px solid #0ea5e9;
+    border-left: 3px solid #334155;
+}
+
+.pivot-table .list-group:first-of-type {
+    border-left: none;
+}
+
+/* Divider between list groups in data rows */
+.pivot-table .list-divider {
+    border-left: 3px solid #334155;
+}
+
+.pivot-table .metric-header {
+    font-size: 10px;
+    color: var(--color-text-light);
+}
+
+.pivot-table .metric-value {
+    text-align: right;
+}
+
+.pivot-table .metric-value.highlight {
     background: #fef3c7;
     font-weight: 600;
+}
+
+.pivot-table .metric-value.good {
+    background: var(--color-superstar-bg);
+    color: #065f46;
+}
+
+.pivot-table .metric-value.bad {
+    background: var(--color-grinder-bg);
+    color: #991b1b;
+}
+
+.pivot-legend {
+    display: flex;
+    gap: 24px;
+    margin-top: 12px;
+    padding: 12px;
+    background: #f8fafc;
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--color-text-light);
+}
+
+/* Agent totals row */
+.pivot-table tr.agent-row:hover td {
+    background: #f8fafc;
+}
+
+.pivot-table tr.agent-row td.agent-cell:hover {
+    background: #e5e7eb;
 }
 
 /* =============================================================================

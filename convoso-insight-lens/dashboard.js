@@ -95,8 +95,8 @@ function renderDashboard() {
 
     // Render sections
     renderSummaryCards();
+    renderPivotTable();  // New primary view
     renderAgentsTable();
-    renderKPIsTable();
     renderListsSection();
 }
 
@@ -167,38 +167,121 @@ function renderAgentsTable(filter = 'all', searchTerm = '') {
 }
 
 /**
- * Render calculated KPIs table
+ * Render pivot table: Agent (rows) × List (columns) with conversion metrics
  */
-function renderKPIsTable() {
-    const tbody = document.getElementById('kpisTableBody');
+function renderPivotTable(searchTerm = '') {
+    const thead = document.getElementById('pivotTableHead');
+    const tbody = document.getElementById('pivotTableBody');
+    thead.innerHTML = '';
     tbody.innerHTML = '';
 
     const agents = currentData.agentDetails || [];
-
     if (agents.length === 0) {
         tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#999;padding:40px;">No data available</td></tr>';
         return;
     }
 
-    agents.forEach(agent => {
-        const row = document.createElement('tr');
-        
-        const user = agent.raw?.User || agent.raw?.Agent || 'N/A';
-        const p = agent.parsed || {};
-        const c = agent.calculated || {};
+    // Step 1: Aggregate data by Agent → List
+    const agentMap = new Map(); // agentName -> { lists: Map<listName, metrics>, totals: {...} }
+    const allLists = new Set();
 
-        row.innerHTML = `
-            <td>${escapeHtml(user)}</td>
-            <td>${(p.dialed || 0).toLocaleString()}</td>
-            <td>${(p.contacts || 0).toLocaleString()}</td>
-            <td class="calculated">${formatPercent(c.contactRate)}</td>
-            <td>${(p.appt || 0).toLocaleString()}</td>
-            <td class="calculated">${formatPercent(c.apptPercentOfCalls)}</td>
-            <td class="calculated">${formatPercent(c.apptPercentOfContacts)}</td>
-            <td>${(p.lxfer || 0).toLocaleString()}</td>
-            <td class="calculated">${formatPercent(c.lxferPercentOfCalls)}</td>
-            <td class="calculated">${formatPercent(c.lxferPercentOfContacts)}</td>
-        `;
+    agents.forEach(record => {
+        const agentName = record.raw?.User || record.raw?.Agent || 'Unknown';
+        const listName = record.raw?.List || record.raw?.['List Name'] || 'Default';
+        
+        allLists.add(listName);
+
+        if (!agentMap.has(agentName)) {
+            agentMap.set(agentName, { 
+                lists: new Map(),
+                totals: { dialed: 0, contacts: 0, success: 0, appt: 0, lxfer: 0 }
+            });
+        }
+
+        const agentData = agentMap.get(agentName);
+        const p = record.parsed || {};
+
+        // Aggregate per list
+        if (!agentData.lists.has(listName)) {
+            agentData.lists.set(listName, { dialed: 0, contacts: 0, success: 0, appt: 0, lxfer: 0 });
+        }
+        const listData = agentData.lists.get(listName);
+        listData.dialed += p.dialed || 0;
+        listData.contacts += p.contacts || 0;
+        listData.success += p.successCount || 0;
+        listData.appt += p.appt || 0;
+        listData.lxfer += p.lxfer || 0;
+
+        // Aggregate totals
+        agentData.totals.dialed += p.dialed || 0;
+        agentData.totals.contacts += p.contacts || 0;
+        agentData.totals.success += p.successCount || 0;
+        agentData.totals.appt += p.appt || 0;
+        agentData.totals.lxfer += p.lxfer || 0;
+    });
+
+    const listNames = Array.from(allLists).sort();
+    const metrics = ['Dialed', 'Contacts', 'Contact%', 'APPT', 'APPT%', 'LXFER', 'LXFER%', 'Success', 'Success%'];
+
+    // Step 2: Build header rows
+    // Row 1: List names (spanning multiple metric columns)
+    const headerRow1 = document.createElement('tr');
+    headerRow1.innerHTML = `<th class="agent-header" rowspan="2">Agent</th><th colspan="${metrics.length}" class="list-group">TOTALS</th>`;
+    listNames.forEach(list => {
+        headerRow1.innerHTML += `<th colspan="${metrics.length}" class="list-group">${escapeHtml(list.substring(0, 20))}</th>`;
+    });
+    thead.appendChild(headerRow1);
+
+    // Row 2: Metric names
+    const headerRow2 = document.createElement('tr');
+    const metricsHtml = metrics.map(m => `<th class="metric-header">${m}</th>`).join('');
+    headerRow2.innerHTML = metricsHtml; // Totals
+    listNames.forEach(() => {
+        headerRow2.innerHTML += metricsHtml;
+    });
+    thead.appendChild(headerRow2);
+
+    // Step 3: Build data rows
+    const sortedAgents = Array.from(agentMap.entries())
+        .filter(([name]) => !searchTerm || name.toLowerCase().includes(searchTerm.toLowerCase()))
+        .sort((a, b) => b[1].totals.dialed - a[1].totals.dialed); // Sort by total dials
+
+    sortedAgents.forEach(([agentName, agentData]) => {
+        const row = document.createElement('tr');
+        row.className = 'agent-row';
+
+        // Agent name cell (sticky)
+        row.innerHTML = `<td class="agent-cell">${escapeHtml(agentName)}</td>`;
+
+        // Helper to render metrics for a data object
+        const renderMetrics = (data, addDivider = false) => {
+            const contactPct = data.dialed > 0 ? (data.contacts / data.dialed) * 100 : 0;
+            const apptPct = data.contacts > 0 ? (data.appt / data.contacts) * 100 : 0;
+            const lxferPct = data.contacts > 0 ? (data.lxfer / data.contacts) * 100 : 0;
+            const successPct = data.contacts > 0 ? (data.success / data.contacts) * 100 : 0;
+            const dividerClass = addDivider ? 'list-divider' : '';
+
+            return `
+                <td class="metric-value ${dividerClass}">${data.dialed}</td>
+                <td class="metric-value">${data.contacts}</td>
+                <td class="metric-value highlight">${contactPct.toFixed(1)}%</td>
+                <td class="metric-value">${data.appt}</td>
+                <td class="metric-value highlight ${apptPct > 5 ? 'good' : ''}">${apptPct.toFixed(1)}%</td>
+                <td class="metric-value">${data.lxfer}</td>
+                <td class="metric-value highlight ${lxferPct > 5 ? 'good' : ''}">${lxferPct.toFixed(1)}%</td>
+                <td class="metric-value">${data.success}</td>
+                <td class="metric-value highlight ${successPct > 10 ? 'good' : ''}">${successPct.toFixed(1)}%</td>
+            `;
+        };
+
+        // Totals column (no divider on first group)
+        row.innerHTML += renderMetrics(agentData.totals, false);
+
+        // Each list column (with divider)
+        listNames.forEach(listName => {
+            const listData = agentData.lists.get(listName) || { dialed: 0, contacts: 0, success: 0, appt: 0, lxfer: 0 };
+            row.innerHTML += renderMetrics(listData, true);
+        });
 
         tbody.appendChild(row);
     });
@@ -477,7 +560,12 @@ function setupEventListeners() {
         });
     });
 
-    // Agent search
+    // Pivot table search
+    document.getElementById('pivotSearch').addEventListener('input', (e) => {
+        renderPivotTable(e.target.value);
+    });
+
+    // Agent search (raw data tab)
     document.getElementById('agentSearch').addEventListener('input', (e) => {
         const filter = document.getElementById('insightFilter').value;
         renderAgentsTable(filter, e.target.value);

@@ -84,8 +84,8 @@
 
             <!-- Tabs -->
             <nav class="tabs">
-                <button class="tab-btn active" data-tab="agents">Agent Performance</button>
-                <button class="tab-btn" data-tab="kpis">Calculated KPIs</button>
+                <button class="tab-btn active" data-tab="pivot">Agent × List</button>
+                <button class="tab-btn" data-tab="agents">Raw Data</button>
                 <button class="tab-btn" data-tab="lists">List Summary</button>
                 <button class="tab-btn" data-tab="charts">Charts</button>
             </nav>
@@ -93,8 +93,31 @@
             <!-- Tab Content -->
             <div class="tab-content">
                 
-                <!-- Agents Tab -->
-                <section id="agents-tab" class="tab-pane active">
+                <!-- Pivot Tab: Agent × List with Conversion Metrics -->
+                <section id="pivot-tab" class="tab-pane active">
+                    <div class="pivot-header">
+                        <h2>Agent Performance by List</h2>
+                        <p>Each agent's metrics broken down by list. Conversion rates calculated automatically.</p>
+                    </div>
+                    <div class="table-controls">
+                        <input type="text" id="pivotSearch" class="search-input" placeholder="Search agents...">
+                    </div>
+                    <div class="table-container pivot-table-container">
+                        <table id="pivotTable" class="data-table pivot-table">
+                            <thead id="pivotTableHead"></thead>
+                            <tbody id="pivotTableBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="pivot-legend">
+                        <span><strong>Contact %</strong> = Contacts ÷ Dialed</span>
+                        <span><strong>APPT %</strong> = APPT ÷ Contacts</span>
+                        <span><strong>LXFER %</strong> = LXFER ÷ Contacts</span>
+                        <span><strong>Success %</strong> = Success ÷ Contacts</span>
+                    </div>
+                </section>
+
+                <!-- Agents Tab (Raw Data) -->
+                <section id="agents-tab" class="tab-pane">
                     <div class="table-controls">
                         <input type="text" id="agentSearch" class="search-input" placeholder="Search agents...">
                         <select id="insightFilter" class="filter-select">
@@ -119,33 +142,6 @@
                                 </tr>
                             </thead>
                             <tbody id="agentsTableBody"></tbody>
-                        </table>
-                    </div>
-                </section>
-
-                <!-- KPIs Tab -->
-                <section id="kpis-tab" class="tab-pane">
-                    <div class="kpi-header">
-                        <h2>Calculated Performance Metrics</h2>
-                        <p>These metrics are calculated from raw Convoso data to provide actionable insights.</p>
-                    </div>
-                    <div class="table-container">
-                        <table id="kpisTable" class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>User</th>
-                                    <th>Dialed</th>
-                                    <th>Contacts</th>
-                                    <th>Contact Rate</th>
-                                    <th>APPT</th>
-                                    <th>APPT % Calls</th>
-                                    <th>APPT % Contacts</th>
-                                    <th>LXFER</th>
-                                    <th>LXFER % Calls</th>
-                                    <th>LXFER % Contacts</th>
-                                </tr>
-                            </thead>
-                            <tbody id="kpisTableBody"></tbody>
                         </table>
                     </div>
                 </section>

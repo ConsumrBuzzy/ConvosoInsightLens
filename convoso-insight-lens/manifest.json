@@ -2,11 +2,9 @@
   "manifest_version": 3,
   "name": "Convoso Insight Lens",
   "version": "2.0.0",
-  "description": "Injects APPT % and LXFER % conversion columns directly into Convoso reports.",
+  "description": "Adds calculated APPT % and LXFER % columns to Convoso reports for instant sales conversion insights.",
   "permissions": [
-    "activeTab",
-    "scripting",
-    "storage"
+    "activeTab"
   ],
   "host_permissions": [
     "*://*.convoso.com/*"

@@ -388,29 +388,25 @@ function applyColumnVisibility(table) {
  * Apply visibility for a specific lensed column immediately
  */
 function applyLensedColumnVisibility(key, isVisible) {
-    // Map key to CSS class
-    const classMap = {
-        apptContacts: 'insight-appt-contacts',
-        apptCalls: 'insight-appt-calls',
-        lxferContacts: 'insight-lxfer-contacts',
-        lxferCalls: 'insight-lxfer-calls',
-        successContacts: 'insight-success-contacts',
-        successCalls: 'insight-success-calls'
+    // Map key to header text for more reliable matching
+    const headerMap = {
+        apptContacts: 'APPT%(C)',
+        apptCalls: 'APPT%(D)',
+        lxferContacts: 'LXFER%(C)',
+        lxferCalls: 'LXFER%(D)',
+        successContacts: 'SUCCESS%(C)',
+        successCalls: 'SUCCESS%(D)'
     };
     
-    const cssClass = classMap[key];
-    if (!cssClass) return;
+    const headerText = headerMap[key];
+    if (!headerText) {
+        console.log('[Insight Lens] Unknown lensed key:', key);
+        return;
+    }
     
-    // Find all elements with this class and toggle visibility
-    document.querySelectorAll(`.${cssClass}`).forEach(el => {
-        el.style.display = isVisible ? '' : 'none';
-    });
-}
-
-/**
- * Apply visibility for an original column immediately by header text
- */
-function applyOriginalColumnVisibility(headerText, isVisible) {
+    console.log('[Insight Lens] Toggling column:', headerText, 'visible:', isVisible);
+    
+    // Find columns by header text across all tables
     document.querySelectorAll('table').forEach(table => {
         const headerRow = table.querySelector('thead tr');
         if (!headerRow) return;
@@ -420,6 +416,38 @@ function applyOriginalColumnVisibility(headerText, isVisible) {
 
         headerCells.forEach((th, colIndex) => {
             if (th.innerText.trim() === headerText) {
+                console.log('[Insight Lens] Found column at index:', colIndex);
+                // Toggle header visibility
+                th.style.display = isVisible ? '' : 'none';
+                
+                // Toggle corresponding data cells
+                bodyRows.forEach(row => {
+                    const cells = row.querySelectorAll('td');
+                    if (cells[colIndex]) {
+                        cells[colIndex].style.display = isVisible ? '' : 'none';
+                    }
+                });
+            }
+        });
+    });
+}
+
+/**
+ * Apply visibility for an original column immediately by header text
+ */
+function applyOriginalColumnVisibility(headerText, isVisible) {
+    console.log('[Insight Lens] Toggling original column:', headerText, 'visible:', isVisible);
+    
+    document.querySelectorAll('table').forEach(table => {
+        const headerRow = table.querySelector('thead tr');
+        if (!headerRow) return;
+
+        const headerCells = Array.from(headerRow.querySelectorAll('th'));
+        const bodyRows = table.querySelectorAll('tbody tr');
+
+        headerCells.forEach((th, colIndex) => {
+            if (th.innerText.trim() === headerText) {
+                console.log('[Insight Lens] Found original column at index:', colIndex);
                 // Toggle header visibility
                 th.style.display = isVisible ? '' : 'none';
                 

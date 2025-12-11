@@ -730,16 +730,17 @@ function createSettingsPanel() {
     document.getElementById('ils-settings-close').addEventListener('click', toggleSettingsPanel);
     document.getElementById('ils-apply-settings').addEventListener('click', applySettingsFromPanel);
 
-    // Checkbox change handlers for lensed columns - apply immediately
+    // Checkbox change handlers for lensed columns - apply immediately and save
     panel.querySelectorAll('.ils-lensed-checkbox').forEach(cb => {
         cb.addEventListener('change', (e) => {
             const key = e.target.dataset.key;
             INSIGHT_CONFIG.lensedColumns[key] = e.target.checked;
             applyLensedColumnVisibility(key, e.target.checked);
+            saveSettings();
         });
     });
 
-    // Checkbox change handlers for original columns - apply immediately
+    // Checkbox change handlers for original columns - apply immediately and save
     panel.querySelectorAll('.ils-original-checkbox').forEach(cb => {
         cb.addEventListener('change', (e) => {
             const header = e.target.dataset.header;
@@ -751,6 +752,7 @@ function createSettingsPanel() {
                 }
             }
             applyOriginalColumnVisibility(header, e.target.checked);
+            saveSettings();
         });
     });
 }

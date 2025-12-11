@@ -91,4 +91,4 @@ See [PUBLISHING_GUIDE.md](convoso-insight-lens/PUBLISHING_GUIDE.md) for Chrome W
 
 ## License
 
-Internal use only.
+MIT

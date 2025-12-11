@@ -55,4 +55,4 @@ convoso-insight-lens/
 
 ## License
 
-Internal use only.
+MIT

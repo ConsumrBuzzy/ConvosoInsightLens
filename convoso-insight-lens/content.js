@@ -492,7 +492,7 @@ function getAllColumnHeaders() {
 // =============================================================================
 
 /**
- * Create floating toggle button
+ * Create floating toggle button with On/Off switch
  */
 function createToggleButton() {
     // Check if already exists
@@ -500,18 +500,42 @@ function createToggleButton() {
 
     const btn = document.createElement('button');
     btn.id = 'insight-lens-toggle';
-    btn.innerHTML = '📊 Insight Lens';
+    btn.innerHTML = `
+        <span style="display: flex; align-items: center; gap: 8px;">
+            <span class="ils-toggle-switch" style="
+                width: 36px;
+                height: 20px;
+                background: #059669;
+                border-radius: 10px;
+                position: relative;
+                transition: background 0.2s;
+            ">
+                <span class="ils-toggle-knob" style="
+                    position: absolute;
+                    top: 2px;
+                    left: 18px;
+                    width: 16px;
+                    height: 16px;
+                    background: white;
+                    border-radius: 50%;
+                    transition: left 0.2s;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+                "></span>
+            </span>
+            <span class="ils-toggle-label">Lens ON</span>
+        </span>
+    `;
     btn.style.cssText = `
         position: fixed;
         bottom: 20px;
         right: 20px;
         z-index: 99999;
-        padding: 10px 16px;
-        background: #2563eb;
+        padding: 8px 14px;
+        background: #1f2937;
         color: white;
         border: none;
         border-radius: 8px;
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 600;
         cursor: pointer;
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
@@ -519,12 +543,10 @@ function createToggleButton() {
     `;
 
     btn.addEventListener('mouseenter', () => {
-        btn.style.background = '#1d4ed8';
         btn.style.transform = 'scale(1.05)';
     });
 
     btn.addEventListener('mouseleave', () => {
-        btn.style.background = INSIGHT_CONFIG.enabled ? '#2563eb' : '#6b7280';
         btn.style.transform = 'scale(1)';
     });
 
@@ -558,15 +580,20 @@ function updateToggleState() {
     const btn = document.getElementById('insight-lens-toggle');
     if (!btn) return;
 
-    if (INSIGHT_CONFIG.enabled && columnsInjected) {
-        btn.innerHTML = '📊 Lens ON';
-        btn.style.background = '#059669';
-    } else if (INSIGHT_CONFIG.enabled) {
-        btn.innerHTML = '📊 Insight Lens';
-        btn.style.background = '#2563eb';
+    const toggleSwitch = btn.querySelector('.ils-toggle-switch');
+    const toggleKnob = btn.querySelector('.ils-toggle-knob');
+    const toggleLabel = btn.querySelector('.ils-toggle-label');
+    
+    if (!toggleSwitch || !toggleKnob || !toggleLabel) return;
+
+    if (INSIGHT_CONFIG.enabled) {
+        toggleSwitch.style.background = '#059669';
+        toggleKnob.style.left = '18px';
+        toggleLabel.textContent = 'Lens ON';
     } else {
-        btn.innerHTML = '📊 Lens OFF';
-        btn.style.background = '#6b7280';
+        toggleSwitch.style.background = '#6b7280';
+        toggleKnob.style.left = '2px';
+        toggleLabel.textContent = 'Lens OFF';
     }
 }
 

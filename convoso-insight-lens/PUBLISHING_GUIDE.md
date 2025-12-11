@@ -51,7 +51,7 @@ convoso-insight-lens/
 cd C:\Users\cheat\OneDrive\Documents\GitHub\December_2025\ConvosoInsightLens
 
 # Create ZIP (exclude dev files)
-Compress-Archive -Path convoso-insight-lens\* -DestinationPath convoso-insight-lens-v2.0.0.zip -Force
+Compress-Archive -Path convoso-insight-lens\* -DestinationPath convoso-insight-lens-v2.1.0.zip -Force
 ```
 
 **Exclude from ZIP:**
@@ -85,10 +85,11 @@ Required dimensions: **1280x800** or **640x400** pixels
 
 ### Recommended Screenshots:
 
-1. **Main Feature** - Show a Convoso table with injected APPT% and LXFER% columns
-2. **Color Coding** - Highlight the green/yellow/orange color coding
+1. **Main Feature** - Show a Convoso table with injected 6 Lensed columns (APPT%, LXFER%, SUCCESS%)
+2. **Color Coding** - Highlight the metric-type color coding (Blue=APPT, Pink=LXFER, Green=SUCCESS)
 3. **Dashboard Overlay** - Show the overlay dashboard open
-4. **Popup UI** - Show the extension popup
+4. **Settings Panel** - Show the ⚙️ Columns settings panel with checkboxes
+5. **Popup UI** - Show the extension popup with color legend
 
 ### How to Capture:
 1. Navigate to a Convoso report (or use demo/test data)
@@ -116,7 +117,7 @@ Copy from `STORE_LISTING.md`:
 |-------|-------|
 | **Language** | English (United States) |
 | **Extension Name** | Convoso Insight Lens |
-| **Short Description** | Adds APPT % and LXFER % calculated columns to Convoso reports for instant sales conversion insights. |
+| **Short Description** | Adds 6 calculated columns (APPT%, LXFER%, SUCCESS% of Contacts & Calls) to Convoso reports with toggleable visibility. |
 | **Description** | [Copy detailed description from STORE_LISTING.md] |
 | **Category** | Productivity |
 | **Extension Icon** | Upload 128x128 icon |
@@ -129,7 +130,7 @@ Copy from `STORE_LISTING.md`:
 
 | Question | Answer |
 |----------|--------|
-| **Single Purpose** | This extension adds calculated performance metric columns (APPT % and LXFER %) directly into Convoso report tables. |
+| **Single Purpose** | This extension adds 6 calculated performance metric columns (APPT%, LXFER%, SUCCESS% of Contacts & Calls) directly into Convoso report tables with toggleable visibility. |
 | **Permission Justifications** | [Copy from STORE_LISTING.md] |
 | **Privacy Policy URL** | [Your hosted URL] |
 | **Data Collection** | No, this extension does not collect any user data |

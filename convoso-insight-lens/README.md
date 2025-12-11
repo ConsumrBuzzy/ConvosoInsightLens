@@ -1,14 +1,16 @@
 # Convoso Insight Lens
 
-A Chrome Extension that adds calculated APPT % and LXFER % columns directly into Convoso reports for instant sales conversion insights.
+A Chrome Extension that adds 6 calculated "Lensed" columns directly into Convoso reports for instant sales conversion insights.
 
 ## Features
 
-- **Calculated Columns** - Automatically injects APPT % and LXFER % columns into tables
-- **Color-Coded Results** - Green (≥10%), Yellow (5-10%), Orange (<5%)
+- **6 Lensed Columns** - APPT%(C), APPT%(D), LXFER%(C), LXFER%(D), SUCCESS%(C), SUCCESS%(D)
+- **Color-Coded by Metric Type** - Blue (APPT), Pink (LXFER), Green (SUCCESS)
+- **Column Visibility Toggle** - Show/hide any column via ⚙️ Columns button
+- **Persistent Settings** - Preferences saved between sessions
 - **Dashboard Overlay** - Full analytics view with agent-by-list breakdown
-- **CSV Export** - One-click export for further analysis
-- **Minimal Permissions** - Only `activeTab` + host permission for convoso.com
+- **CSV Export** - One-click export with all 6 metrics
+- **Minimal Permissions** - Only `activeTab`, `storage` + host permission for convoso.com
 
 ## Installation
 
@@ -30,9 +32,11 @@ A Chrome Extension that adds calculated APPT % and LXFER % columns directly into
 
 | Metric | Formula |
 |--------|---------|
-| APPT % | (Appointments ÷ Contacts) × 100 |
-| LXFER % | (Live Transfers ÷ Contacts) × 100 |
-| Contact % | (Contacts ÷ Dialed) × 100 |
+| %(C) | Value ÷ Contacts × 100 |
+| %(D) | Value ÷ Dialed × 100 |
+| Contact % | Contacts ÷ Dialed × 100 |
+
+**Columns:** APPT%(C), APPT%(D), LXFER%(C), LXFER%(D), SUCCESS%(C), SUCCESS%(D)
 
 ## File Structure
 
@@ -51,7 +55,7 @@ convoso-insight-lens/
 
 ## Version
 
-2.0.0
+2.1.0
 
 ## License
 

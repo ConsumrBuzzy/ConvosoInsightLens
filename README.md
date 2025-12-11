@@ -4,10 +4,12 @@ A Chrome Extension that adds calculated performance metrics (APPT % and LXFER %)
 
 ## Features
 
-- **Calculated Columns** - Automatically injects APPT % and LXFER % columns into Convoso tables
-- **Color-Coded Results** - Green (≥10%), Yellow (5-10%), Orange (<5%)
+- **6 Lensed Columns** - APPT%(C), APPT%(D), LXFER%(C), LXFER%(D), SUCCESS%(C), SUCCESS%(D)
+- **Color-Coded by Metric Type** - Blue (APPT), Pink (LXFER), Green (SUCCESS)
+- **Column Visibility Toggle** - Show/hide any column via ⚙️ Columns button
+- **Persistent Settings** - Preferences saved between sessions via `chrome.storage`
 - **Dashboard Overlay** - Full analytics view with agent-by-list breakdown
-- **CSV Export** - One-click export for further analysis
+- **CSV Export** - One-click export with all 6 metrics
 - **Zero Data Collection** - All processing happens locally in your browser
 
 ## Permissions
@@ -17,6 +19,7 @@ This extension uses **minimal permissions**:
 | Permission | Purpose |
 |------------|---------|
 | `activeTab` | Communicate between popup and content script |
+| `storage` | Persist column visibility preferences |
 | `convoso.com` | Inject enhancement script on Convoso pages only |
 
 **No data is collected, stored, or transmitted.**
@@ -86,6 +89,7 @@ See [PUBLISHING_GUIDE.md](convoso-insight-lens/PUBLISHING_GUIDE.md) for Chrome W
 
 | Version | Changes |
 |---------|---------|
+| 2.1.0 | 6 Lensed columns (SUCCESS added), metric-type coloring, column visibility toggle, persistent settings |
 | 2.0.0 | Minimal permissions, inline column injection, dashboard overlay |
 | 1.0.0 | Initial release |
 

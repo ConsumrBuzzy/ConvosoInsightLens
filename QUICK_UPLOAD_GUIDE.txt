@@ -1,0 +1,94 @@
+================================================================================
+CHROME WEB STORE - QUICK UPLOAD GUIDE
+================================================================================
+
+STEP 1: Go to https://chrome.google.com/webstore/devconsole
+STEP 2: Click "New Item" → Upload: ConvosoInsightLens-v2.0.0-UPLOAD.zip
+
+================================================================================
+STORE LISTING TAB - Copy/Paste These Fields
+================================================================================
+
+LANGUAGE: English (United States)
+
+NAME: Convoso Insight Lens
+
+SHORT DESCRIPTION (132 chars):
+Adds APPT % and LXFER % calculated columns to Convoso reports for instant sales conversion insights.
+
+DETAILED DESCRIPTION:
+Convoso Insight Lens transforms your Convoso reporting dashboard by automatically calculating and displaying key performance metrics.
+
+WHAT IT DOES
+• Automatically detects report tables on Convoso pages
+• Calculates APPT % (Appointments / Contacts)
+• Calculates LXFER % (Live Transfers / Contacts)
+• Injects calculated columns directly into existing tables
+• Color-codes results: Green (>10%), Yellow (5-10%), Orange (<5%)
+• Provides an overlay dashboard for detailed analysis
+• Exports processed data to CSV
+
+KEY METRICS
+• APPT % - What percentage of contacts became appointments?
+• LXFER % - What percentage of contacts became live transfers?
+• Contact % - What percentage of dials resulted in contacts?
+
+PRIVACY-FOCUSED
+• ALL processing happens locally in YOUR browser
+• NO data is collected, stored, or transmitted
+• NO external server connections
+• Works only on convoso.com domains
+
+HOW TO USE
+1. Install the extension
+2. Navigate to any Convoso report page
+3. Calculated columns appear automatically
+4. Click the extension icon to open the full dashboard overlay
+5. Export to CSV for further analysis
+
+Built by Convoso users, for Convoso users.
+
+CATEGORY: Productivity
+
+================================================================================
+UPLOAD SCREENSHOTS (1280x800 each)
+================================================================================
+
+Upload your screenshot(s) showing the extension in action.
+
+================================================================================
+PRIVACY TAB
+================================================================================
+
+SINGLE PURPOSE DESCRIPTION:
+This extension adds calculated performance metric columns (APPT % and LXFER %) directly into Convoso report tables, allowing users to instantly see conversion rates without manual calculation.
+
+HOST PERMISSION JUSTIFICATION (*://*.convoso.com/*):
+Required to inject the content script that reads Convoso report tables and displays calculated metric columns. The extension only operates on Convoso domains.
+
+ACTIVETAB PERMISSION JUSTIFICATION:
+Required for the extension popup to communicate with the content script running on the active Convoso tab. Enables the dashboard button functionality.
+
+DATA COLLECTION:
+Select "No, this extension does not collect any user data"
+
+PRIVACY POLICY URL:
+https://github.com/[YOUR-USERNAME]/ConvosoInsightLens/blob/main/convoso-insight-lens/PRIVACY_POLICY.md
+
+(Replace [YOUR-USERNAME] with your actual GitHub username after pushing)
+
+================================================================================
+DISTRIBUTION TAB
+================================================================================
+
+VISIBILITY: Public
+DISTRIBUTION: All regions
+
+================================================================================
+SUBMIT
+================================================================================
+
+Click "Submit for Review"
+Review time: 1-3 business days
+
+================================================================================

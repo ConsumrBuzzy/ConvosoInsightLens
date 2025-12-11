@@ -10,7 +10,7 @@
     <div class="popup">
         <header>
             <h1>📊 Insight Lens</h1>
-            <p class="subtitle">APPT % & LXFER % Dashboard</p>
+            <p class="subtitle">4 Lensed Columns: APPT & LXFER %</p>
         </header>
 
         <div class="status-bar">
@@ -22,14 +22,33 @@
             <button id="openDashboard" class="btn btn-primary">Open Dashboard Overlay</button>
         </div>
 
+        <div class="settings-section">
+            <div class="settings-header">⚙️ Color Thresholds</div>
+            <div class="threshold-row">
+                <label for="thresholdGood">Green (Good) ≥</label>
+                <div class="input-group">
+                    <input type="number" id="thresholdGood" min="0" max="100" step="1" value="10">
+                    <span>%</span>
+                </div>
+            </div>
+            <div class="threshold-row">
+                <label for="thresholdMedium">Yellow (Medium) ≥</label>
+                <div class="input-group">
+                    <input type="number" id="thresholdMedium" min="0" max="100" step="1" value="5">
+                    <span>%</span>
+                </div>
+            </div>
+            <div class="threshold-note">Below medium = Orange</div>
+            <button id="saveThresholds" class="btn btn-secondary">Save Thresholds</button>
+        </div>
+
         <div class="info">
-            <p><strong>APPT %</strong> = Appointments ÷ Contacts</p>
-            <p><strong>LXFER %</strong> = Live Transfers ÷ Contacts</p>
-            <p><strong>Contact %</strong> = Contacts ÷ Dialed</p>
+            <p><strong>%(C)</strong> = % of Contacts</p>
+            <p><strong>%(D)</strong> = % of Dialed (Calls)</p>
         </div>
 
         <footer>
-            <small>Dashboard overlays on the Convoso page</small>
+            <small>Use ⚙️ Columns button on page for visibility</small>
         </footer>
     </div>
 

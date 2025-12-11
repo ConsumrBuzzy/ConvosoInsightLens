@@ -20,10 +20,70 @@ const INSIGHT_CONFIG = {
         lxfer: ['lxfer', 'status \'lxfer', 'status \'lxfer - live transfer\'', 'live transfer'],
         success: ['success'],
         dialed: ['dialed']
+    },
+    // Default thresholds for color coding
+    thresholds: {
+        good: 10,    // >= this = green
+        medium: 5    // >= this = yellow, below = orange
+    },
+    // Hidden columns (by header text)
+    hiddenColumns: [],
+    // Lensed column visibility
+    lensedColumns: {
+        apptContacts: true,
+        apptCalls: true,
+        lxferContacts: true,
+        lxferCalls: true
     }
 };
 
 let columnsInjected = false;
+let settingsPanelVisible = false;
+
+// =============================================================================
+// STORAGE - Load and save user preferences
+// =============================================================================
+
+/**
+ * Load settings from chrome.storage.local
+ */
+async function loadSettings() {
+    try {
+        const result = await chrome.storage.local.get('insightLens');
+        if (result.insightLens) {
+            if (result.insightLens.thresholds) {
+                INSIGHT_CONFIG.thresholds = result.insightLens.thresholds;
+            }
+            if (result.insightLens.hiddenColumns) {
+                INSIGHT_CONFIG.hiddenColumns = result.insightLens.hiddenColumns;
+            }
+            if (result.insightLens.lensedColumns) {
+                INSIGHT_CONFIG.lensedColumns = result.insightLens.lensedColumns;
+            }
+        }
+        console.log('[Insight Lens] Settings loaded:', INSIGHT_CONFIG);
+    } catch (e) {
+        console.log('[Insight Lens] Using default settings');
+    }
+}
+
+/**
+ * Save settings to chrome.storage.local
+ */
+async function saveSettings() {
+    try {
+        await chrome.storage.local.set({
+            insightLens: {
+                thresholds: INSIGHT_CONFIG.thresholds,
+                hiddenColumns: INSIGHT_CONFIG.hiddenColumns,
+                lensedColumns: INSIGHT_CONFIG.lensedColumns
+            }
+        });
+        console.log('[Insight Lens] Settings saved');
+    } catch (e) {
+        console.error('[Insight Lens] Failed to save settings:', e);
+    }
+}
 
 // =============================================================================
 // UTILITIES
@@ -48,6 +108,16 @@ function formatPct(num) {
 }
 
 /**
+ * Get background color based on value and thresholds
+ */
+function getColorForValue(value) {
+    if (value >= INSIGHT_CONFIG.thresholds.good) return '#bbf7d0'; // Green
+    if (value >= INSIGHT_CONFIG.thresholds.medium) return '#fef08a'; // Yellow
+    if (value > 0) return '#fed7aa'; // Orange
+    return '#fef9c3'; // Default yellow for zero
+}
+
+/**
  * Find column index by matching header text (case-insensitive, partial match)
  */
 function findColumnIndex(headers, searchTerms) {
@@ -67,7 +137,9 @@ function findColumnIndex(headers, searchTerms) {
 // =============================================================================
 
 /**
- * Process a single table - inject APPT% and LXFER% columns
+ * Process a single table - inject 4 Lensed columns:
+ * APPT%(C), APPT%(D), LXFER%(C), LXFER%(D)
+ * (C) = of Contacts, (D) = of Dialed/Calls
  */
 function processTable(table) {
     const headerRow = table.querySelector('thead tr');
@@ -78,7 +150,7 @@ function processTable(table) {
     const headers = headerCells.map(th => th.innerText.trim());
 
     // Check if we already injected columns
-    if (headers.some(h => h.includes('APPT %') || h.includes('LXFER %'))) {
+    if (headers.some(h => h.includes('APPT%(C)') || h.includes('LXFER%(C)'))) {
         return; // Already processed
     }
 
@@ -88,47 +160,87 @@ function processTable(table) {
     const lxferIdx = findColumnIndex(headers, INSIGHT_CONFIG.columns.lxfer);
     const dialedIdx = findColumnIndex(headers, INSIGHT_CONFIG.columns.dialed);
 
-    // Need at least contacts column to calculate percentages
-    if (contactsIdx === -1) {
-        console.log('[Insight Lens] Skipping table - no Contacts column found');
+    // Need at least contacts OR dialed column to calculate percentages
+    if (contactsIdx === -1 && dialedIdx === -1) {
+        console.log('[Insight Lens] Skipping table - no Contacts or Dialed column found');
         return;
     }
 
     console.log('[Insight Lens] Processing table with columns:', { contactsIdx, apptIdx, lxferIdx, dialedIdx });
 
-    // Determine where to insert new columns (after the source column)
+    // Build insertions array - 4 Lensed columns
     const insertions = [];
 
-    // APPT % column (after APPT column if exists, otherwise after Contacts)
-    if (apptIdx !== -1) {
-        insertions.push({
-            afterIdx: apptIdx,
-            headerText: 'APPT %',
-            calculate: (cells) => {
-                const contacts = parseNum(cells[contactsIdx]?.innerText);
-                const appt = parseNum(cells[apptIdx]?.innerText);
-                return contacts > 0 ? (appt / contacts) * 100 : 0;
-            },
-            cssClass: 'insight-calc-col insight-appt-pct'
-        });
+    // LXFER columns (insert these first so they appear after APPT columns)
+    if (lxferIdx !== -1) {
+        // LXFER % of Dialed (Calls)
+        if (dialedIdx !== -1 && INSIGHT_CONFIG.lensedColumns.lxferCalls) {
+            insertions.push({
+                afterIdx: lxferIdx,
+                headerText: 'LXFER%(D)',
+                headerTitle: 'LXFER % of Dialed (Calls)',
+                calculate: (cells) => {
+                    const dialed = parseNum(cells[dialedIdx]?.innerText);
+                    const lxfer = parseNum(cells[lxferIdx]?.innerText);
+                    return dialed > 0 ? (lxfer / dialed) * 100 : 0;
+                },
+                cssClass: 'insight-calc-col insight-lxfer-calls',
+                lensedKey: 'lxferCalls'
+            });
+        }
+        // LXFER % of Contacts
+        if (contactsIdx !== -1 && INSIGHT_CONFIG.lensedColumns.lxferContacts) {
+            insertions.push({
+                afterIdx: lxferIdx,
+                headerText: 'LXFER%(C)',
+                headerTitle: 'LXFER % of Contacts',
+                calculate: (cells) => {
+                    const contacts = parseNum(cells[contactsIdx]?.innerText);
+                    const lxfer = parseNum(cells[lxferIdx]?.innerText);
+                    return contacts > 0 ? (lxfer / contacts) * 100 : 0;
+                },
+                cssClass: 'insight-calc-col insight-lxfer-contacts',
+                lensedKey: 'lxferContacts'
+            });
+        }
     }
 
-    // LXFER % column (after LXFER column if exists)
-    if (lxferIdx !== -1) {
-        insertions.push({
-            afterIdx: lxferIdx,
-            headerText: 'LXFER %',
-            calculate: (cells) => {
-                const contacts = parseNum(cells[contactsIdx]?.innerText);
-                const lxfer = parseNum(cells[lxferIdx]?.innerText);
-                return contacts > 0 ? (lxfer / contacts) * 100 : 0;
-            },
-            cssClass: 'insight-calc-col insight-lxfer-pct'
-        });
+    // APPT columns
+    if (apptIdx !== -1) {
+        // APPT % of Dialed (Calls)
+        if (dialedIdx !== -1 && INSIGHT_CONFIG.lensedColumns.apptCalls) {
+            insertions.push({
+                afterIdx: apptIdx,
+                headerText: 'APPT%(D)',
+                headerTitle: 'APPT % of Dialed (Calls)',
+                calculate: (cells) => {
+                    const dialed = parseNum(cells[dialedIdx]?.innerText);
+                    const appt = parseNum(cells[apptIdx]?.innerText);
+                    return dialed > 0 ? (appt / dialed) * 100 : 0;
+                },
+                cssClass: 'insight-calc-col insight-appt-calls',
+                lensedKey: 'apptCalls'
+            });
+        }
+        // APPT % of Contacts
+        if (contactsIdx !== -1 && INSIGHT_CONFIG.lensedColumns.apptContacts) {
+            insertions.push({
+                afterIdx: apptIdx,
+                headerText: 'APPT%(C)',
+                headerTitle: 'APPT % of Contacts',
+                calculate: (cells) => {
+                    const contacts = parseNum(cells[contactsIdx]?.innerText);
+                    const appt = parseNum(cells[apptIdx]?.innerText);
+                    return contacts > 0 ? (appt / contacts) * 100 : 0;
+                },
+                cssClass: 'insight-calc-col insight-appt-contacts',
+                lensedKey: 'apptContacts'
+            });
+        }
     }
 
     if (insertions.length === 0) {
-        console.log('[Insight Lens] No APPT or LXFER columns found to calculate percentages');
+        console.log('[Insight Lens] No columns to inject based on current settings');
         return;
     }
 
@@ -140,8 +252,9 @@ function processTable(table) {
     insertions.forEach(ins => {
         const newTh = document.createElement('th');
         newTh.innerText = ins.headerText;
+        newTh.title = ins.headerTitle;
         newTh.className = ins.cssClass;
-        newTh.style.cssText = 'background: #fef3c7; color: #92400e; font-weight: 600; min-width: 80px; text-align: center;';
+        newTh.style.cssText = 'background: #fef3c7; color: #92400e; font-weight: 600; min-width: 70px; text-align: center; cursor: help;';
         
         const afterCell = headerCells[ins.afterIdx];
         if (afterCell && afterCell.nextSibling) {
@@ -163,12 +276,8 @@ function processTable(table) {
             newTd.innerText = formatPct(value);
             newTd.className = ins.cssClass;
             
-            // Color coding based on value
-            let bgColor = '#fef9c3'; // Yellow default
-            if (value >= 10) bgColor = '#bbf7d0'; // Green for good
-            else if (value >= 5) bgColor = '#fef08a'; // Yellow
-            else if (value > 0) bgColor = '#fed7aa'; // Orange for low
-            
+            // Color coding based on configurable thresholds
+            const bgColor = getColorForValue(value);
             newTd.style.cssText = `background: ${bgColor}; font-weight: 600; text-align: center;`;
 
             const afterCell = cells[ins.afterIdx];
@@ -181,7 +290,7 @@ function processTable(table) {
     });
 
     columnsInjected = true;
-    console.log('[Insight Lens] Injected calculated columns into table');
+    console.log('[Insight Lens] Injected 4 Lensed columns into table');
 }
 
 /**
@@ -197,11 +306,57 @@ function scanAndInject() {
         // Only process tables that look like data tables (have thead)
         if (table.querySelector('thead')) {
             processTable(table);
+            applyColumnVisibility(table);
         }
     });
 
     // Update toggle button state
     updateToggleState();
+}
+
+/**
+ * Apply column visibility based on user preferences
+ */
+function applyColumnVisibility(table) {
+    const headerRow = table.querySelector('thead tr');
+    if (!headerRow) return;
+
+    const headerCells = Array.from(headerRow.querySelectorAll('th'));
+    const bodyRows = table.querySelectorAll('tbody tr');
+
+    headerCells.forEach((th, colIndex) => {
+        const headerText = th.innerText.trim();
+        const isHidden = INSIGHT_CONFIG.hiddenColumns.includes(headerText);
+        
+        // Hide/show header
+        th.style.display = isHidden ? 'none' : '';
+        
+        // Hide/show corresponding data cells
+        bodyRows.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            if (cells[colIndex]) {
+                cells[colIndex].style.display = isHidden ? 'none' : '';
+            }
+        });
+    });
+}
+
+/**
+ * Get all column headers from all tables on page
+ */
+function getAllColumnHeaders() {
+    const allHeaders = new Set();
+    const tables = document.querySelectorAll('table thead tr');
+    
+    tables.forEach(headerRow => {
+        const cells = headerRow.querySelectorAll('th');
+        cells.forEach(th => {
+            const text = th.innerText.trim();
+            if (text) allHeaders.add(text);
+        });
+    });
+    
+    return Array.from(allHeaders);
 }
 
 // =============================================================================
@@ -324,6 +479,219 @@ function showNotification(message) {
 }
 
 // =============================================================================
+// SETTINGS GEAR BUTTON & COLUMN VISIBILITY PANEL
+// =============================================================================
+
+/**
+ * Create the floating gear button for column settings
+ */
+function createSettingsButton() {
+    if (document.getElementById('insight-lens-settings-btn')) return;
+
+    const btn = document.createElement('button');
+    btn.id = 'insight-lens-settings-btn';
+    btn.innerHTML = '⚙️ Columns';
+    btn.style.cssText = `
+        position: fixed;
+        bottom: 70px;
+        right: 20px;
+        z-index: 99999;
+        padding: 10px 16px;
+        background: #4b5563;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transition: all 0.2s;
+    `;
+
+    btn.addEventListener('mouseenter', () => {
+        btn.style.background = '#374151';
+        btn.style.transform = 'scale(1.05)';
+    });
+
+    btn.addEventListener('mouseleave', () => {
+        btn.style.background = '#4b5563';
+        btn.style.transform = 'scale(1)';
+    });
+
+    btn.addEventListener('click', toggleSettingsPanel);
+
+    document.body.appendChild(btn);
+}
+
+/**
+ * Toggle settings panel visibility
+ */
+function toggleSettingsPanel() {
+    const panel = document.getElementById('insight-lens-settings-panel');
+    if (panel) {
+        panel.remove();
+        settingsPanelVisible = false;
+    } else {
+        createSettingsPanel();
+        settingsPanelVisible = true;
+    }
+}
+
+/**
+ * Create the settings panel with column checkboxes
+ */
+function createSettingsPanel() {
+    if (document.getElementById('insight-lens-settings-panel')) return;
+
+    const panel = document.createElement('div');
+    panel.id = 'insight-lens-settings-panel';
+    panel.style.cssText = `
+        position: fixed;
+        bottom: 120px;
+        right: 20px;
+        z-index: 99999;
+        width: 280px;
+        max-height: 400px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    `;
+
+    // Get all column headers
+    const allHeaders = getAllColumnHeaders();
+    
+    // Separate lensed columns from original columns
+    const lensedHeaders = allHeaders.filter(h => 
+        h.includes('%(C)') || h.includes('%(D)')
+    );
+    const originalHeaders = allHeaders.filter(h => 
+        !h.includes('%(C)') && !h.includes('%(D)')
+    );
+
+    panel.innerHTML = `
+        <div style="padding: 12px 16px; background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%); color: white; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: 600;">Column Visibility</span>
+            <button id="ils-settings-close" style="background: none; border: none; color: white; font-size: 18px; cursor: pointer;">✕</button>
+        </div>
+        <div style="max-height: 320px; overflow-y: auto; padding: 12px 16px;">
+            <div style="margin-bottom: 12px;">
+                <div style="font-size: 11px; font-weight: 600; color: #92400e; background: #fef3c7; padding: 4px 8px; border-radius: 4px; margin-bottom: 8px;">
+                    🔬 LENSED COLUMNS
+                </div>
+                ${buildLensedCheckboxes()}
+            </div>
+            <div>
+                <div style="font-size: 11px; font-weight: 600; color: #1e40af; background: #dbeafe; padding: 4px 8px; border-radius: 4px; margin-bottom: 8px;">
+                    📊 ORIGINAL COLUMNS
+                </div>
+                ${buildOriginalCheckboxes(originalHeaders)}
+            </div>
+        </div>
+        <div style="padding: 12px 16px; border-top: 1px solid #e5e7eb; background: #f9fafb;">
+            <button id="ils-apply-settings" style="width: 100%; padding: 8px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">
+                Apply & Save
+            </button>
+        </div>
+    `;
+
+    document.body.appendChild(panel);
+
+    // Event listeners
+    document.getElementById('ils-settings-close').addEventListener('click', toggleSettingsPanel);
+    document.getElementById('ils-apply-settings').addEventListener('click', applySettingsFromPanel);
+
+    // Checkbox change handlers for lensed columns
+    panel.querySelectorAll('.ils-lensed-checkbox').forEach(cb => {
+        cb.addEventListener('change', (e) => {
+            const key = e.target.dataset.key;
+            INSIGHT_CONFIG.lensedColumns[key] = e.target.checked;
+        });
+    });
+}
+
+/**
+ * Build checkboxes for lensed columns
+ */
+function buildLensedCheckboxes() {
+    const lensedItems = [
+        { key: 'apptContacts', label: 'APPT% (Contacts)', shortLabel: 'APPT%(C)' },
+        { key: 'apptCalls', label: 'APPT% (Calls/Dialed)', shortLabel: 'APPT%(D)' },
+        { key: 'lxferContacts', label: 'LXFER% (Contacts)', shortLabel: 'LXFER%(C)' },
+        { key: 'lxferCalls', label: 'LXFER% (Calls/Dialed)', shortLabel: 'LXFER%(D)' }
+    ];
+
+    return lensedItems.map(item => `
+        <label style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">
+            <input type="checkbox" 
+                   class="ils-lensed-checkbox" 
+                   data-key="${item.key}" 
+                   ${INSIGHT_CONFIG.lensedColumns[item.key] ? 'checked' : ''}
+                   style="margin-right: 8px; width: 16px; height: 16px;">
+            <span style="font-size: 13px;">${item.label}</span>
+        </label>
+    `).join('');
+}
+
+/**
+ * Build checkboxes for original columns
+ */
+function buildOriginalCheckboxes(headers) {
+    if (headers.length === 0) {
+        return '<p style="font-size: 12px; color: #6b7280;">Load a report to see columns</p>';
+    }
+
+    return headers.map(header => `
+        <label style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">
+            <input type="checkbox" 
+                   class="ils-original-checkbox" 
+                   data-header="${escapeHtml(header)}" 
+                   ${!INSIGHT_CONFIG.hiddenColumns.includes(header) ? 'checked' : ''}
+                   style="margin-right: 8px; width: 16px; height: 16px;">
+            <span style="font-size: 13px;">${escapeHtml(header)}</span>
+        </label>
+    `).join('');
+}
+
+/**
+ * Apply settings from the panel and save
+ */
+async function applySettingsFromPanel() {
+    const panel = document.getElementById('insight-lens-settings-panel');
+    if (!panel) return;
+
+    // Collect hidden original columns
+    const hiddenCols = [];
+    panel.querySelectorAll('.ils-original-checkbox').forEach(cb => {
+        if (!cb.checked) {
+            hiddenCols.push(cb.dataset.header);
+        }
+    });
+    INSIGHT_CONFIG.hiddenColumns = hiddenCols;
+
+    // Collect lensed column settings
+    panel.querySelectorAll('.ils-lensed-checkbox').forEach(cb => {
+        INSIGHT_CONFIG.lensedColumns[cb.dataset.key] = cb.checked;
+    });
+
+    // Save to storage
+    await saveSettings();
+
+    // Re-apply: remove old columns and re-inject
+    removeInjectedColumns();
+    scanAndInject();
+
+    // Apply visibility to all tables
+    document.querySelectorAll('table').forEach(table => {
+        applyColumnVisibility(table);
+    });
+
+    showNotification('Column settings saved!');
+    toggleSettingsPanel();
+}
+
+// =============================================================================
 // MUTATION OBSERVER - Handle dynamic Angular updates
 // =============================================================================
 
@@ -408,8 +776,8 @@ function createOverlayDashboard() {
                 </div>
             </div>
             <div class="ils-footer">
-                <span><strong>APPT %</strong> = APPT ÷ Contacts</span>
-                <span><strong>LXFER %</strong> = LXFER ÷ Contacts</span>
+                <span><strong>%(C)</strong> = ÷ Contacts</span>
+                <span><strong>%(D)</strong> = ÷ Dialed (Calls)</span>
                 <span><strong>Contact %</strong> = Contacts ÷ Dialed</span>
             </div>
         </div>
@@ -648,9 +1016,12 @@ function populateOverlay() {
         return;
     }
 
-    // Build pivot table
-    const lists = Array.from(data.lists).sort();
-    const metrics = ['Dialed', 'Contacts', 'Contact%', 'APPT', 'APPT%', 'LXFER', 'LXFER%'];
+    // Build pivot table - filter out "All" list as it's redundant with TOTALS
+    const lists = Array.from(data.lists)
+        .filter(listName => listName.toLowerCase() !== 'all')
+        .sort();
+    // Updated metrics to include both % of Contacts (C) and % of Dialed (D)
+    const metrics = ['Dialed', 'Contacts', 'Contact%', 'APPT', 'APPT%(C)', 'APPT%(D)', 'LXFER', 'LXFER%(C)', 'LXFER%(D)'];
 
     // Header row 1: List names
     let header1 = '<tr><th rowspan="2" class="ils-agent-cell">Agent</th>';
@@ -701,24 +1072,41 @@ function populateOverlay() {
 
 /**
  * Render metric cells for a data object
+ * Now includes both % of Contacts (C) and % of Dialed (D)
  */
 function renderMetricCells(data, addDivider) {
     const contactPct = data.dialed > 0 ? (data.contacts / data.dialed) * 100 : 0;
-    const apptPct = data.contacts > 0 ? (data.appt / data.contacts) * 100 : 0;
-    const lxferPct = data.contacts > 0 ? (data.lxfer / data.contacts) * 100 : 0;
+    // % of Contacts
+    const apptPctC = data.contacts > 0 ? (data.appt / data.contacts) * 100 : 0;
+    const lxferPctC = data.contacts > 0 ? (data.lxfer / data.contacts) * 100 : 0;
+    // % of Dialed (Calls)
+    const apptPctD = data.dialed > 0 ? (data.appt / data.dialed) * 100 : 0;
+    const lxferPctD = data.dialed > 0 ? (data.lxfer / data.dialed) * 100 : 0;
 
     const divider = addDivider ? 'ils-divider' : '';
-    const apptClass = apptPct >= 10 ? 'ils-pct-good' : (apptPct < 2 && data.contacts > 0 ? 'ils-pct-bad' : '');
-    const lxferClass = lxferPct >= 10 ? 'ils-pct-good' : (lxferPct < 2 && data.contacts > 0 ? 'ils-pct-bad' : '');
+    
+    // Color classes using configurable thresholds
+    const getClass = (pct, hasData) => {
+        if (pct >= INSIGHT_CONFIG.thresholds.good) return 'ils-pct-good';
+        if (pct < INSIGHT_CONFIG.thresholds.medium && hasData) return 'ils-pct-bad';
+        return '';
+    };
+
+    const apptClassC = getClass(apptPctC, data.contacts > 0);
+    const apptClassD = getClass(apptPctD, data.dialed > 0);
+    const lxferClassC = getClass(lxferPctC, data.contacts > 0);
+    const lxferClassD = getClass(lxferPctD, data.dialed > 0);
 
     return `
         <td class="${divider}">${data.dialed}</td>
         <td>${data.contacts}</td>
         <td class="ils-pct">${contactPct.toFixed(1)}%</td>
         <td>${data.appt}</td>
-        <td class="ils-pct ${apptClass}">${apptPct.toFixed(1)}%</td>
+        <td class="ils-pct ${apptClassC}">${apptPctC.toFixed(1)}%</td>
+        <td class="ils-pct ${apptClassD}">${apptPctD.toFixed(1)}%</td>
         <td>${data.lxfer}</td>
-        <td class="ils-pct ${lxferClass}">${lxferPct.toFixed(1)}%</td>
+        <td class="ils-pct ${lxferClassC}">${lxferPctC.toFixed(1)}%</td>
+        <td class="ils-pct ${lxferClassD}">${lxferPctD.toFixed(1)}%</td>
     `;
 }
 
@@ -799,20 +1187,31 @@ function escapeHtml(text) {
 
 /**
  * Export data to CSV
+ * Includes all 4 Lensed metrics: APPT%(C), APPT%(D), LXFER%(C), LXFER%(D)
  */
 function exportCSV() {
     const data = extractAllTableData();
-    const lists = Array.from(data.lists).sort();
+    // Filter out "All" list from export as well
+    const lists = Array.from(data.lists)
+        .filter(listName => listName.toLowerCase() !== 'all')
+        .sort();
     
-    let csv = 'Agent,List,Dialed,Contacts,Contact%,APPT,APPT%,LXFER,LXFER%\n';
+    let csv = 'Agent,List,Dialed,Contacts,Contact%,APPT,APPT%(C),APPT%(D),LXFER,LXFER%(C),LXFER%(D)\n';
     
     data.agents.forEach((agentData, agentName) => {
         agentData.lists.forEach((listData, listName) => {
-            const contactPct = listData.dialed > 0 ? (listData.contacts / listData.dialed) * 100 : 0;
-            const apptPct = listData.contacts > 0 ? (listData.appt / listData.contacts) * 100 : 0;
-            const lxferPct = listData.contacts > 0 ? (listData.lxfer / listData.contacts) * 100 : 0;
+            // Skip "All" list
+            if (listName.toLowerCase() === 'all') return;
             
-            csv += `"${agentName}","${listName}",${listData.dialed},${listData.contacts},${contactPct.toFixed(2)}%,${listData.appt},${apptPct.toFixed(2)}%,${listData.lxfer},${lxferPct.toFixed(2)}%\n`;
+            const contactPct = listData.dialed > 0 ? (listData.contacts / listData.dialed) * 100 : 0;
+            // % of Contacts
+            const apptPctC = listData.contacts > 0 ? (listData.appt / listData.contacts) * 100 : 0;
+            const lxferPctC = listData.contacts > 0 ? (listData.lxfer / listData.contacts) * 100 : 0;
+            // % of Dialed (Calls)
+            const apptPctD = listData.dialed > 0 ? (listData.appt / listData.dialed) * 100 : 0;
+            const lxferPctD = listData.dialed > 0 ? (listData.lxfer / listData.dialed) * 100 : 0;
+            
+            csv += `"${agentName}","${listName}",${listData.dialed},${listData.contacts},${contactPct.toFixed(2)}%,${listData.appt},${apptPctC.toFixed(2)}%,${apptPctD.toFixed(2)}%,${listData.lxfer},${lxferPctC.toFixed(2)}%,${lxferPctD.toFixed(2)}%\n`;
         });
     });
 
@@ -833,22 +1232,36 @@ function exportCSV() {
 
 console.log('[Insight Lens] Content script loaded');
 
-// Create toggle button (now opens overlay)
-createToggleButton();
+/**
+ * Initialize the extension
+ */
+async function initialize() {
+    // Load saved settings first
+    await loadSettings();
+    
+    // Create floating buttons
+    createToggleButton();
+    createSettingsButton();
 
-// Update toggle button to open overlay instead
-document.getElementById('insight-lens-toggle').removeEventListener('click', toggleInsightLens);
-document.getElementById('insight-lens-toggle').addEventListener('click', toggleOverlay);
-document.getElementById('insight-lens-toggle').innerHTML = '📊 Open Dashboard';
+    // Update toggle button to open overlay instead
+    const toggleBtn = document.getElementById('insight-lens-toggle');
+    if (toggleBtn) {
+        toggleBtn.removeEventListener('click', toggleInsightLens);
+        toggleBtn.addEventListener('click', toggleOverlay);
+        toggleBtn.innerHTML = '📊 Dashboard';
+    }
 
-// Initial scan for inline columns
-setTimeout(scanAndInject, 1000);
+    // Initial scan for inline columns (with delay for Angular to render)
+    setTimeout(scanAndInject, 1000);
 
-// Start observing for dynamic content
-observer.observe(document.body, {
-    childList: true,
-    subtree: true
-});
+    // Start observing for dynamic content
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+
+    console.log('[Insight Lens] Initialization complete');
+}
 
 // Add CSS animation
 const style = document.createElement('style');
@@ -859,3 +1272,6 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+// Run initialization
+initialize();

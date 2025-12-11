@@ -1,11 +1,15 @@
 /**
  * Convoso Insight Lens - Popup Script
  * Opens overlay dashboard on Convoso page
+ * Manages threshold settings
  */
 
 document.addEventListener('DOMContentLoaded', () => {
     // Check current status
     checkStatus();
+    
+    // Load saved thresholds
+    loadThresholds();
 
     // Open Dashboard button
     document.getElementById('openDashboard').addEventListener('click', () => {
@@ -15,6 +19,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+
+    // Save Thresholds button
+    document.getElementById('saveThresholds').addEventListener('click', saveThresholds);
 });
 
 /**
@@ -84,4 +91,48 @@ function showError(message) {
     statusDot.className = 'status-dot error';
     btn.disabled = true;
     btn.textContent = 'Unavailable';
+}
+
+/**
+ * Load threshold settings from storage
+ */
+function loadThresholds() {
+    chrome.storage.local.get('insightLens', (result) => {
+        if (result.insightLens && result.insightLens.thresholds) {
+            document.getElementById('thresholdGood').value = result.insightLens.thresholds.good || 10;
+            document.getElementById('thresholdMedium').value = result.insightLens.thresholds.medium || 5;
+        }
+    });
+}
+
+/**
+ * Save threshold settings to storage and notify content script
+ */
+function saveThresholds() {
+    const good = parseInt(document.getElementById('thresholdGood').value) || 10;
+    const medium = parseInt(document.getElementById('thresholdMedium').value) || 5;
+
+    // Validate: good should be >= medium
+    if (good < medium) {
+        alert('Green threshold must be >= Yellow threshold');
+        return;
+    }
+
+    chrome.storage.local.get('insightLens', (result) => {
+        const settings = result.insightLens || {};
+        settings.thresholds = { good, medium };
+
+        chrome.storage.local.set({ insightLens: settings }, () => {
+            // Notify content script to refresh
+            sendToContent('refresh', (response) => {
+                const btn = document.getElementById('saveThresholds');
+                btn.textContent = '✓ Saved!';
+                btn.style.background = '#059669';
+                setTimeout(() => {
+                    btn.textContent = 'Save Thresholds';
+                    btn.style.background = '';
+                }, 1500);
+            });
+        });
+    });
 }

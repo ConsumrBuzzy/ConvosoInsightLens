@@ -679,11 +679,13 @@ function createSettingsPanel() {
         right: 20px;
         z-index: 99999;
         width: 280px;
-        max-height: 400px;
+        max-height: calc(100vh - 140px);
         background: white;
         border-radius: 12px;
         box-shadow: 0 10px 40px rgba(0,0,0,0.2);
         overflow: hidden;
+        display: flex;
+        flex-direction: column;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     `;
 
@@ -703,7 +705,7 @@ function createSettingsPanel() {
             <span style="font-weight: 600;">Column Visibility</span>
             <button id="ils-settings-close" style="background: none; border: none; color: white; font-size: 18px; cursor: pointer;">✕</button>
         </div>
-        <div style="max-height: 320px; overflow-y: auto; padding: 12px 16px;">
+        <div style="flex: 1; overflow-y: auto; padding: 12px 16px;">
             <div style="margin-bottom: 12px;">
                 <div style="font-size: 11px; font-weight: 600; color: #92400e; background: #fef3c7; padding: 4px 8px; border-radius: 4px; margin-bottom: 8px;">
                     🔬 LENSED COLUMNS

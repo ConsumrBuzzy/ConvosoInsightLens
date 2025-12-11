@@ -358,7 +358,7 @@ function scanAndInject() {
 }
 
 /**
- * Apply column visibility based on user preferences
+ * Apply column visibility based on user preferences (both original and lensed)
  */
 function applyColumnVisibility(table) {
     const headerRow = table.querySelector('thead tr');
@@ -367,9 +367,30 @@ function applyColumnVisibility(table) {
     const headerCells = Array.from(headerRow.querySelectorAll('th'));
     const bodyRows = table.querySelectorAll('tbody tr');
 
+    // Map lensed column keys to header text
+    const lensedHeaderMap = {
+        'APPT%(C)': 'apptContacts',
+        'APPT%(D)': 'apptCalls',
+        'LXFER%(C)': 'lxferContacts',
+        'LXFER%(D)': 'lxferCalls',
+        'SUCCESS%(C)': 'successContacts',
+        'SUCCESS%(D)': 'successCalls'
+    };
+
     headerCells.forEach((th, colIndex) => {
         const headerText = th.innerText.trim();
-        const isHidden = INSIGHT_CONFIG.hiddenColumns.includes(headerText);
+        
+        // Check if it's a lensed column
+        const lensedKey = lensedHeaderMap[headerText];
+        let isHidden = false;
+        
+        if (lensedKey) {
+            // Lensed column - check lensedColumns config
+            isHidden = !INSIGHT_CONFIG.lensedColumns[lensedKey];
+        } else {
+            // Original column - check hiddenColumns array
+            isHidden = INSIGHT_CONFIG.hiddenColumns.includes(headerText);
+        }
         
         // Hide/show header
         th.style.display = isHidden ? 'none' : '';
@@ -399,12 +420,7 @@ function applyLensedColumnVisibility(key, isVisible) {
     };
     
     const headerText = headerMap[key];
-    if (!headerText) {
-        console.log('[Insight Lens] Unknown lensed key:', key);
-        return;
-    }
-    
-    console.log('[Insight Lens] Toggling column:', headerText, 'visible:', isVisible);
+    if (!headerText) return;
     
     // Find columns by header text across all tables
     document.querySelectorAll('table').forEach(table => {
@@ -416,11 +432,7 @@ function applyLensedColumnVisibility(key, isVisible) {
 
         headerCells.forEach((th, colIndex) => {
             if (th.innerText.trim() === headerText) {
-                console.log('[Insight Lens] Found column at index:', colIndex);
-                // Toggle header visibility
                 th.style.display = isVisible ? '' : 'none';
-                
-                // Toggle corresponding data cells
                 bodyRows.forEach(row => {
                     const cells = row.querySelectorAll('td');
                     if (cells[colIndex]) {
@@ -436,8 +448,6 @@ function applyLensedColumnVisibility(key, isVisible) {
  * Apply visibility for an original column immediately by header text
  */
 function applyOriginalColumnVisibility(headerText, isVisible) {
-    console.log('[Insight Lens] Toggling original column:', headerText, 'visible:', isVisible);
-    
     document.querySelectorAll('table').forEach(table => {
         const headerRow = table.querySelector('thead tr');
         if (!headerRow) return;
@@ -447,11 +457,7 @@ function applyOriginalColumnVisibility(headerText, isVisible) {
 
         headerCells.forEach((th, colIndex) => {
             if (th.innerText.trim() === headerText) {
-                console.log('[Insight Lens] Found original column at index:', colIndex);
-                // Toggle header visibility
                 th.style.display = isVisible ? '' : 'none';
-                
-                // Toggle corresponding data cells
                 bodyRows.forEach(row => {
                     const cells = row.querySelectorAll('td');
                     if (cells[colIndex]) {

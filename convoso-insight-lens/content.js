@@ -385,6 +385,57 @@ function applyColumnVisibility(table) {
 }
 
 /**
+ * Apply visibility for a specific lensed column immediately
+ */
+function applyLensedColumnVisibility(key, isVisible) {
+    // Map key to CSS class
+    const classMap = {
+        apptContacts: 'insight-appt-contacts',
+        apptCalls: 'insight-appt-calls',
+        lxferContacts: 'insight-lxfer-contacts',
+        lxferCalls: 'insight-lxfer-calls',
+        successContacts: 'insight-success-contacts',
+        successCalls: 'insight-success-calls'
+    };
+    
+    const cssClass = classMap[key];
+    if (!cssClass) return;
+    
+    // Find all elements with this class and toggle visibility
+    document.querySelectorAll(`.${cssClass}`).forEach(el => {
+        el.style.display = isVisible ? '' : 'none';
+    });
+}
+
+/**
+ * Apply visibility for an original column immediately by header text
+ */
+function applyOriginalColumnVisibility(headerText, isVisible) {
+    document.querySelectorAll('table').forEach(table => {
+        const headerRow = table.querySelector('thead tr');
+        if (!headerRow) return;
+
+        const headerCells = Array.from(headerRow.querySelectorAll('th'));
+        const bodyRows = table.querySelectorAll('tbody tr');
+
+        headerCells.forEach((th, colIndex) => {
+            if (th.innerText.trim() === headerText) {
+                // Toggle header visibility
+                th.style.display = isVisible ? '' : 'none';
+                
+                // Toggle corresponding data cells
+                bodyRows.forEach(row => {
+                    const cells = row.querySelectorAll('td');
+                    if (cells[colIndex]) {
+                        cells[colIndex].style.display = isVisible ? '' : 'none';
+                    }
+                });
+            }
+        });
+    });
+}
+
+/**
  * Get all column headers from all tables on page
  */
 function getAllColumnHeaders() {
@@ -645,11 +696,27 @@ function createSettingsPanel() {
     document.getElementById('ils-settings-close').addEventListener('click', toggleSettingsPanel);
     document.getElementById('ils-apply-settings').addEventListener('click', applySettingsFromPanel);
 
-    // Checkbox change handlers for lensed columns
+    // Checkbox change handlers for lensed columns - apply immediately
     panel.querySelectorAll('.ils-lensed-checkbox').forEach(cb => {
         cb.addEventListener('change', (e) => {
             const key = e.target.dataset.key;
             INSIGHT_CONFIG.lensedColumns[key] = e.target.checked;
+            applyLensedColumnVisibility(key, e.target.checked);
+        });
+    });
+
+    // Checkbox change handlers for original columns - apply immediately
+    panel.querySelectorAll('.ils-original-checkbox').forEach(cb => {
+        cb.addEventListener('change', (e) => {
+            const header = e.target.dataset.header;
+            if (e.target.checked) {
+                INSIGHT_CONFIG.hiddenColumns = INSIGHT_CONFIG.hiddenColumns.filter(h => h !== header);
+            } else {
+                if (!INSIGHT_CONFIG.hiddenColumns.includes(header)) {
+                    INSIGHT_CONFIG.hiddenColumns.push(header);
+                }
+            }
+            applyOriginalColumnVisibility(header, e.target.checked);
         });
     });
 }

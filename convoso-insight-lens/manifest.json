@@ -4,7 +4,8 @@
   "version": "2.0.0",
   "description": "Adds calculated APPT % and LXFER % columns to Convoso reports for instant sales conversion insights.",
   "permissions": [
-    "activeTab"
+    "activeTab",
+    "storage"
   ],
   "host_permissions": [
     "*://*.convoso.com/*"

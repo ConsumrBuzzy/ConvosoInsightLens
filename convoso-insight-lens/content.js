@@ -18,22 +18,25 @@ const INSIGHT_CONFIG = {
         contacts: ['contacts', 'contact'],
         appt: ['appt', 'status \'appt', 'status \'appt - appointment scheduled\'', 'appointment'],
         lxfer: ['lxfer', 'status \'lxfer', 'status \'lxfer - live transfer\'', 'live transfer'],
-        success: ['success'],
+        success: ['success', 'all success', 'total success'],
         dialed: ['dialed']
-    },
-    // Default thresholds for color coding
-    thresholds: {
-        good: 10,    // >= this = green
-        medium: 5    // >= this = yellow, below = orange
     },
     // Hidden columns (by header text)
     hiddenColumns: [],
-    // Lensed column visibility
+    // Lensed column visibility (6 columns total)
     lensedColumns: {
         apptContacts: true,
         apptCalls: true,
         lxferContacts: true,
-        lxferCalls: true
+        lxferCalls: true,
+        successContacts: true,
+        successCalls: true
+    },
+    // Color scheme by metric type (not performance-based)
+    colors: {
+        appt: { bg: '#dbeafe', text: '#1e40af' },      // Blue for APPT
+        lxfer: { bg: '#fce7f3', text: '#9d174d' },     // Pink for LXFER
+        success: { bg: '#d1fae5', text: '#065f46' }    // Green for Success
     }
 };
 
@@ -51,14 +54,15 @@ async function loadSettings() {
     try {
         const result = await chrome.storage.local.get('insightLens');
         if (result.insightLens) {
-            if (result.insightLens.thresholds) {
-                INSIGHT_CONFIG.thresholds = result.insightLens.thresholds;
-            }
             if (result.insightLens.hiddenColumns) {
                 INSIGHT_CONFIG.hiddenColumns = result.insightLens.hiddenColumns;
             }
             if (result.insightLens.lensedColumns) {
-                INSIGHT_CONFIG.lensedColumns = result.insightLens.lensedColumns;
+                // Merge with defaults to handle new columns added in updates
+                INSIGHT_CONFIG.lensedColumns = {
+                    ...INSIGHT_CONFIG.lensedColumns,
+                    ...result.insightLens.lensedColumns
+                };
             }
         }
         console.log('[Insight Lens] Settings loaded:', INSIGHT_CONFIG);
@@ -74,7 +78,6 @@ async function saveSettings() {
     try {
         await chrome.storage.local.set({
             insightLens: {
-                thresholds: INSIGHT_CONFIG.thresholds,
                 hiddenColumns: INSIGHT_CONFIG.hiddenColumns,
                 lensedColumns: INSIGHT_CONFIG.lensedColumns
             }
@@ -108,13 +111,12 @@ function formatPct(num) {
 }
 
 /**
- * Get background color based on value and thresholds
+ * Get color style based on metric type (not performance-based)
+ * Colors differentiate APPT vs LXFER vs Success columns
  */
-function getColorForValue(value) {
-    if (value >= INSIGHT_CONFIG.thresholds.good) return '#bbf7d0'; // Green
-    if (value >= INSIGHT_CONFIG.thresholds.medium) return '#fef08a'; // Yellow
-    if (value > 0) return '#fed7aa'; // Orange
-    return '#fef9c3'; // Default yellow for zero
+function getColorStyle(metricType) {
+    const colors = INSIGHT_CONFIG.colors[metricType] || { bg: '#f3f4f6', text: '#374151' };
+    return `background: ${colors.bg}; color: ${colors.text};`;
 }
 
 /**
@@ -137,8 +139,8 @@ function findColumnIndex(headers, searchTerms) {
 // =============================================================================
 
 /**
- * Process a single table - inject 4 Lensed columns:
- * APPT%(C), APPT%(D), LXFER%(C), LXFER%(D)
+ * Process a single table - inject 6 Lensed columns:
+ * APPT%(C), APPT%(D), LXFER%(C), LXFER%(D), SUCCESS%(C), SUCCESS%(D)
  * (C) = of Contacts, (D) = of Dialed/Calls
  */
 function processTable(table) {
@@ -150,7 +152,7 @@ function processTable(table) {
     const headers = headerCells.map(th => th.innerText.trim());
 
     // Check if we already injected columns
-    if (headers.some(h => h.includes('APPT%(C)') || h.includes('LXFER%(C)'))) {
+    if (headers.some(h => h.includes('APPT%(C)') || h.includes('LXFER%(C)') || h.includes('SUCCESS%(C)'))) {
         return; // Already processed
     }
 
@@ -158,6 +160,7 @@ function processTable(table) {
     const contactsIdx = findColumnIndex(headers, INSIGHT_CONFIG.columns.contacts);
     const apptIdx = findColumnIndex(headers, INSIGHT_CONFIG.columns.appt);
     const lxferIdx = findColumnIndex(headers, INSIGHT_CONFIG.columns.lxfer);
+    const successIdx = findColumnIndex(headers, INSIGHT_CONFIG.columns.success);
     const dialedIdx = findColumnIndex(headers, INSIGHT_CONFIG.columns.dialed);
 
     // Need at least contacts OR dialed column to calculate percentages
@@ -166,12 +169,48 @@ function processTable(table) {
         return;
     }
 
-    console.log('[Insight Lens] Processing table with columns:', { contactsIdx, apptIdx, lxferIdx, dialedIdx });
+    console.log('[Insight Lens] Processing table with columns:', { contactsIdx, apptIdx, lxferIdx, successIdx, dialedIdx });
 
-    // Build insertions array - 4 Lensed columns
+    // Build insertions array - 6 Lensed columns
     const insertions = [];
 
-    // LXFER columns (insert these first so they appear after APPT columns)
+    // SUCCESS columns (insert last so they appear at the end)
+    if (successIdx !== -1) {
+        // SUCCESS % of Dialed (Calls)
+        if (dialedIdx !== -1 && INSIGHT_CONFIG.lensedColumns.successCalls) {
+            insertions.push({
+                afterIdx: successIdx,
+                headerText: 'SUCCESS%(D)',
+                headerTitle: 'All Success % of Dialed (Calls)',
+                metricType: 'success',
+                calculate: (cells) => {
+                    const dialed = parseNum(cells[dialedIdx]?.innerText);
+                    const success = parseNum(cells[successIdx]?.innerText);
+                    return dialed > 0 ? (success / dialed) * 100 : 0;
+                },
+                cssClass: 'insight-calc-col insight-success-calls',
+                lensedKey: 'successCalls'
+            });
+        }
+        // SUCCESS % of Contacts
+        if (contactsIdx !== -1 && INSIGHT_CONFIG.lensedColumns.successContacts) {
+            insertions.push({
+                afterIdx: successIdx,
+                headerText: 'SUCCESS%(C)',
+                headerTitle: 'All Success % of Contacts',
+                metricType: 'success',
+                calculate: (cells) => {
+                    const contacts = parseNum(cells[contactsIdx]?.innerText);
+                    const success = parseNum(cells[successIdx]?.innerText);
+                    return contacts > 0 ? (success / contacts) * 100 : 0;
+                },
+                cssClass: 'insight-calc-col insight-success-contacts',
+                lensedKey: 'successContacts'
+            });
+        }
+    }
+
+    // LXFER columns
     if (lxferIdx !== -1) {
         // LXFER % of Dialed (Calls)
         if (dialedIdx !== -1 && INSIGHT_CONFIG.lensedColumns.lxferCalls) {
@@ -179,6 +218,7 @@ function processTable(table) {
                 afterIdx: lxferIdx,
                 headerText: 'LXFER%(D)',
                 headerTitle: 'LXFER % of Dialed (Calls)',
+                metricType: 'lxfer',
                 calculate: (cells) => {
                     const dialed = parseNum(cells[dialedIdx]?.innerText);
                     const lxfer = parseNum(cells[lxferIdx]?.innerText);
@@ -194,6 +234,7 @@ function processTable(table) {
                 afterIdx: lxferIdx,
                 headerText: 'LXFER%(C)',
                 headerTitle: 'LXFER % of Contacts',
+                metricType: 'lxfer',
                 calculate: (cells) => {
                     const contacts = parseNum(cells[contactsIdx]?.innerText);
                     const lxfer = parseNum(cells[lxferIdx]?.innerText);
@@ -213,6 +254,7 @@ function processTable(table) {
                 afterIdx: apptIdx,
                 headerText: 'APPT%(D)',
                 headerTitle: 'APPT % of Dialed (Calls)',
+                metricType: 'appt',
                 calculate: (cells) => {
                     const dialed = parseNum(cells[dialedIdx]?.innerText);
                     const appt = parseNum(cells[apptIdx]?.innerText);
@@ -228,6 +270,7 @@ function processTable(table) {
                 afterIdx: apptIdx,
                 headerText: 'APPT%(C)',
                 headerTitle: 'APPT % of Contacts',
+                metricType: 'appt',
                 calculate: (cells) => {
                     const contacts = parseNum(cells[contactsIdx]?.innerText);
                     const appt = parseNum(cells[apptIdx]?.innerText);
@@ -248,13 +291,14 @@ function processTable(table) {
     // (prevents index shifting issues)
     insertions.sort((a, b) => b.afterIdx - a.afterIdx);
 
-    // Inject header cells
+    // Inject header cells with metric-type coloring
     insertions.forEach(ins => {
         const newTh = document.createElement('th');
         newTh.innerText = ins.headerText;
         newTh.title = ins.headerTitle;
         newTh.className = ins.cssClass;
-        newTh.style.cssText = 'background: #fef3c7; color: #92400e; font-weight: 600; min-width: 70px; text-align: center; cursor: help;';
+        const headerColors = INSIGHT_CONFIG.colors[ins.metricType] || { bg: '#f3f4f6', text: '#374151' };
+        newTh.style.cssText = `background: ${headerColors.bg}; color: ${headerColors.text}; font-weight: 600; min-width: 70px; text-align: center; cursor: help;`;
         
         const afterCell = headerCells[ins.afterIdx];
         if (afterCell && afterCell.nextSibling) {
@@ -264,7 +308,7 @@ function processTable(table) {
         }
     });
 
-    // Inject data cells for each row
+    // Inject data cells for each row with metric-type coloring (not performance-based)
     const bodyRows = table.querySelectorAll('tbody tr');
     bodyRows.forEach(row => {
         const cells = Array.from(row.querySelectorAll('td'));
@@ -276,9 +320,8 @@ function processTable(table) {
             newTd.innerText = formatPct(value);
             newTd.className = ins.cssClass;
             
-            // Color coding based on configurable thresholds
-            const bgColor = getColorForValue(value);
-            newTd.style.cssText = `background: ${bgColor}; font-weight: 600; text-align: center;`;
+            // Color coding by metric type (APPT=blue, LXFER=pink, SUCCESS=green)
+            newTd.style.cssText = `${getColorStyle(ins.metricType)} font-weight: 600; text-align: center;`;
 
             const afterCell = cells[ins.afterIdx];
             if (afterCell && afterCell.nextSibling) {
@@ -290,7 +333,7 @@ function processTable(table) {
     });
 
     columnsInjected = true;
-    console.log('[Insight Lens] Injected 4 Lensed columns into table');
+    console.log('[Insight Lens] Injected 6 Lensed columns into table');
 }
 
 /**
@@ -612,14 +655,16 @@ function createSettingsPanel() {
 }
 
 /**
- * Build checkboxes for lensed columns
+ * Build checkboxes for lensed columns (6 total)
  */
 function buildLensedCheckboxes() {
     const lensedItems = [
-        { key: 'apptContacts', label: 'APPT% (Contacts)', shortLabel: 'APPT%(C)' },
-        { key: 'apptCalls', label: 'APPT% (Calls/Dialed)', shortLabel: 'APPT%(D)' },
-        { key: 'lxferContacts', label: 'LXFER% (Contacts)', shortLabel: 'LXFER%(C)' },
-        { key: 'lxferCalls', label: 'LXFER% (Calls/Dialed)', shortLabel: 'LXFER%(D)' }
+        { key: 'apptContacts', label: 'APPT% (Contacts)', color: INSIGHT_CONFIG.colors.appt },
+        { key: 'apptCalls', label: 'APPT% (Calls)', color: INSIGHT_CONFIG.colors.appt },
+        { key: 'lxferContacts', label: 'LXFER% (Contacts)', color: INSIGHT_CONFIG.colors.lxfer },
+        { key: 'lxferCalls', label: 'LXFER% (Calls)', color: INSIGHT_CONFIG.colors.lxfer },
+        { key: 'successContacts', label: 'SUCCESS% (Contacts)', color: INSIGHT_CONFIG.colors.success },
+        { key: 'successCalls', label: 'SUCCESS% (Calls)', color: INSIGHT_CONFIG.colors.success }
     ];
 
     return lensedItems.map(item => `
@@ -629,7 +674,7 @@ function buildLensedCheckboxes() {
                    data-key="${item.key}" 
                    ${INSIGHT_CONFIG.lensedColumns[item.key] ? 'checked' : ''}
                    style="margin-right: 8px; width: 16px; height: 16px;">
-            <span style="font-size: 13px;">${item.label}</span>
+            <span style="font-size: 13px; padding: 2px 6px; border-radius: 3px; background: ${item.color.bg}; color: ${item.color.text};">${item.label}</span>
         </label>
     `).join('');
 }
@@ -1020,8 +1065,8 @@ function populateOverlay() {
     const lists = Array.from(data.lists)
         .filter(listName => listName.toLowerCase() !== 'all')
         .sort();
-    // Updated metrics to include both % of Contacts (C) and % of Dialed (D)
-    const metrics = ['Dialed', 'Contacts', 'Contact%', 'APPT', 'APPT%(C)', 'APPT%(D)', 'LXFER', 'LXFER%(C)', 'LXFER%(D)'];
+    // Updated metrics to include all 6 Lensed columns
+    const metrics = ['Dialed', 'Contacts', 'Contact%', 'APPT', 'APPT%(C)', 'APPT%(D)', 'LXFER', 'LXFER%(C)', 'LXFER%(D)', 'Success', 'SUCCESS%(C)', 'SUCCESS%(D)'];
 
     // Header row 1: List names
     let header1 = '<tr><th rowspan="2" class="ils-agent-cell">Agent</th>';
@@ -1072,41 +1117,39 @@ function populateOverlay() {
 
 /**
  * Render metric cells for a data object
- * Now includes both % of Contacts (C) and % of Dialed (D)
+ * Includes all 6 Lensed columns with metric-type coloring
  */
 function renderMetricCells(data, addDivider) {
     const contactPct = data.dialed > 0 ? (data.contacts / data.dialed) * 100 : 0;
     // % of Contacts
     const apptPctC = data.contacts > 0 ? (data.appt / data.contacts) * 100 : 0;
     const lxferPctC = data.contacts > 0 ? (data.lxfer / data.contacts) * 100 : 0;
+    const successPctC = data.contacts > 0 ? ((data.success || 0) / data.contacts) * 100 : 0;
     // % of Dialed (Calls)
     const apptPctD = data.dialed > 0 ? (data.appt / data.dialed) * 100 : 0;
     const lxferPctD = data.dialed > 0 ? (data.lxfer / data.dialed) * 100 : 0;
+    const successPctD = data.dialed > 0 ? ((data.success || 0) / data.dialed) * 100 : 0;
 
     const divider = addDivider ? 'ils-divider' : '';
     
-    // Color classes using configurable thresholds
-    const getClass = (pct, hasData) => {
-        if (pct >= INSIGHT_CONFIG.thresholds.good) return 'ils-pct-good';
-        if (pct < INSIGHT_CONFIG.thresholds.medium && hasData) return 'ils-pct-bad';
-        return '';
-    };
-
-    const apptClassC = getClass(apptPctC, data.contacts > 0);
-    const apptClassD = getClass(apptPctD, data.dialed > 0);
-    const lxferClassC = getClass(lxferPctC, data.contacts > 0);
-    const lxferClassD = getClass(lxferPctD, data.dialed > 0);
+    // Metric-type colors (not performance-based)
+    const apptColor = INSIGHT_CONFIG.colors.appt;
+    const lxferColor = INSIGHT_CONFIG.colors.lxfer;
+    const successColor = INSIGHT_CONFIG.colors.success;
 
     return `
         <td class="${divider}">${data.dialed}</td>
         <td>${data.contacts}</td>
         <td class="ils-pct">${contactPct.toFixed(1)}%</td>
         <td>${data.appt}</td>
-        <td class="ils-pct ${apptClassC}">${apptPctC.toFixed(1)}%</td>
-        <td class="ils-pct ${apptClassD}">${apptPctD.toFixed(1)}%</td>
+        <td style="background:${apptColor.bg};color:${apptColor.text};font-weight:600;text-align:right;">${apptPctC.toFixed(1)}%</td>
+        <td style="background:${apptColor.bg};color:${apptColor.text};font-weight:600;text-align:right;">${apptPctD.toFixed(1)}%</td>
         <td>${data.lxfer}</td>
-        <td class="ils-pct ${lxferClassC}">${lxferPctC.toFixed(1)}%</td>
-        <td class="ils-pct ${lxferClassD}">${lxferPctD.toFixed(1)}%</td>
+        <td style="background:${lxferColor.bg};color:${lxferColor.text};font-weight:600;text-align:right;">${lxferPctC.toFixed(1)}%</td>
+        <td style="background:${lxferColor.bg};color:${lxferColor.text};font-weight:600;text-align:right;">${lxferPctD.toFixed(1)}%</td>
+        <td>${data.success || 0}</td>
+        <td style="background:${successColor.bg};color:${successColor.text};font-weight:600;text-align:right;">${successPctC.toFixed(1)}%</td>
+        <td style="background:${successColor.bg};color:${successColor.text};font-weight:600;text-align:right;">${successPctD.toFixed(1)}%</td>
     `;
 }
 
@@ -1131,6 +1174,7 @@ function extractAllTableData() {
         const contactsIdx = findColumnIndex(headers, ['contacts', 'contact']);
         const apptIdx = findColumnIndex(headers, ['appt', 'appointment']);
         const lxferIdx = findColumnIndex(headers, ['lxfer', 'live transfer']);
+        const successIdx = findColumnIndex(headers, ['success', 'all success', 'total success']);
 
         if (userIdx === -1) return;
 
@@ -1146,7 +1190,7 @@ function extractAllTableData() {
             if (!agents.has(agentName)) {
                 agents.set(agentName, {
                     lists: new Map(),
-                    totals: { dialed: 0, contacts: 0, appt: 0, lxfer: 0 }
+                    totals: { dialed: 0, contacts: 0, appt: 0, lxfer: 0, success: 0 }
                 });
             }
 
@@ -1155,22 +1199,25 @@ function extractAllTableData() {
             const contacts = contactsIdx !== -1 ? parseNum(cells[contactsIdx]?.innerText) : 0;
             const appt = apptIdx !== -1 ? parseNum(cells[apptIdx]?.innerText) : 0;
             const lxfer = lxferIdx !== -1 ? parseNum(cells[lxferIdx]?.innerText) : 0;
+            const success = successIdx !== -1 ? parseNum(cells[successIdx]?.innerText) : 0;
 
             // Aggregate per list
             if (!agentData.lists.has(listName)) {
-                agentData.lists.set(listName, { dialed: 0, contacts: 0, appt: 0, lxfer: 0 });
+                agentData.lists.set(listName, { dialed: 0, contacts: 0, appt: 0, lxfer: 0, success: 0 });
             }
             const listData = agentData.lists.get(listName);
             listData.dialed += dialed;
             listData.contacts += contacts;
             listData.appt += appt;
             listData.lxfer += lxfer;
+            listData.success += success;
 
             // Aggregate totals
             agentData.totals.dialed += dialed;
             agentData.totals.contacts += contacts;
             agentData.totals.appt += appt;
             agentData.totals.lxfer += lxfer;
+            agentData.totals.success += success;
         });
     });
 
@@ -1187,7 +1234,7 @@ function escapeHtml(text) {
 
 /**
  * Export data to CSV
- * Includes all 4 Lensed metrics: APPT%(C), APPT%(D), LXFER%(C), LXFER%(D)
+ * Includes all 6 Lensed metrics: APPT%(C), APPT%(D), LXFER%(C), LXFER%(D), SUCCESS%(C), SUCCESS%(D)
  */
 function exportCSV() {
     const data = extractAllTableData();
@@ -1196,7 +1243,7 @@ function exportCSV() {
         .filter(listName => listName.toLowerCase() !== 'all')
         .sort();
     
-    let csv = 'Agent,List,Dialed,Contacts,Contact%,APPT,APPT%(C),APPT%(D),LXFER,LXFER%(C),LXFER%(D)\n';
+    let csv = 'Agent,List,Dialed,Contacts,Contact%,APPT,APPT%(C),APPT%(D),LXFER,LXFER%(C),LXFER%(D),Success,SUCCESS%(C),SUCCESS%(D)\n';
     
     data.agents.forEach((agentData, agentName) => {
         agentData.lists.forEach((listData, listName) => {
@@ -1207,11 +1254,13 @@ function exportCSV() {
             // % of Contacts
             const apptPctC = listData.contacts > 0 ? (listData.appt / listData.contacts) * 100 : 0;
             const lxferPctC = listData.contacts > 0 ? (listData.lxfer / listData.contacts) * 100 : 0;
+            const successPctC = listData.contacts > 0 ? ((listData.success || 0) / listData.contacts) * 100 : 0;
             // % of Dialed (Calls)
             const apptPctD = listData.dialed > 0 ? (listData.appt / listData.dialed) * 100 : 0;
             const lxferPctD = listData.dialed > 0 ? (listData.lxfer / listData.dialed) * 100 : 0;
+            const successPctD = listData.dialed > 0 ? ((listData.success || 0) / listData.dialed) * 100 : 0;
             
-            csv += `"${agentName}","${listName}",${listData.dialed},${listData.contacts},${contactPct.toFixed(2)}%,${listData.appt},${apptPctC.toFixed(2)}%,${apptPctD.toFixed(2)}%,${listData.lxfer},${lxferPctC.toFixed(2)}%,${lxferPctD.toFixed(2)}%\n`;
+            csv += `"${agentName}","${listName}",${listData.dialed},${listData.contacts},${contactPct.toFixed(2)}%,${listData.appt},${apptPctC.toFixed(2)}%,${apptPctD.toFixed(2)}%,${listData.lxfer},${lxferPctC.toFixed(2)}%,${lxferPctD.toFixed(2)}%,${listData.success || 0},${successPctC.toFixed(2)}%,${successPctD.toFixed(2)}%\n`;
         });
     });
 

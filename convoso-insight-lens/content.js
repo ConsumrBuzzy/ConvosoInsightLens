@@ -492,14 +492,13 @@ function getAllColumnHeaders() {
 // =============================================================================
 
 /**
- * Create floating toggle button with On/Off switch
+ * Create floating On/Off toggle button
  */
-function createToggleButton() {
-    // Check if already exists
-    if (document.getElementById('insight-lens-toggle')) return;
+function createOnOffButton() {
+    if (document.getElementById('insight-lens-onoff')) return;
 
     const btn = document.createElement('button');
-    btn.id = 'insight-lens-toggle';
+    btn.id = 'insight-lens-onoff';
     btn.innerHTML = `
         <span style="display: flex; align-items: center; gap: 8px;">
             <span class="ils-toggle-switch" style="
@@ -556,6 +555,47 @@ function createToggleButton() {
 }
 
 /**
+ * Create floating Dashboard button
+ */
+function createDashboardButton() {
+    if (document.getElementById('insight-lens-dashboard')) return;
+
+    const btn = document.createElement('button');
+    btn.id = 'insight-lens-dashboard';
+    btn.innerHTML = '📊 Dashboard';
+    btn.style.cssText = `
+        position: fixed;
+        bottom: 120px;
+        right: 20px;
+        z-index: 99999;
+        padding: 10px 16px;
+        background: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transition: all 0.2s;
+    `;
+
+    btn.addEventListener('mouseenter', () => {
+        btn.style.background = '#1d4ed8';
+        btn.style.transform = 'scale(1.05)';
+    });
+
+    btn.addEventListener('mouseleave', () => {
+        btn.style.background = '#2563eb';
+        btn.style.transform = 'scale(1)';
+    });
+
+    btn.addEventListener('click', toggleOverlay);
+
+    document.body.appendChild(btn);
+}
+
+/**
  * Toggle the insight lens on/off
  */
 function toggleInsightLens() {
@@ -577,7 +617,7 @@ function toggleInsightLens() {
  * Update toggle button appearance
  */
 function updateToggleState() {
-    const btn = document.getElementById('insight-lens-toggle');
+    const btn = document.getElementById('insight-lens-onoff');
     if (!btn) return;
 
     const toggleSwitch = btn.querySelector('.ils-toggle-switch');
@@ -702,11 +742,11 @@ function createSettingsPanel() {
     panel.id = 'insight-lens-settings-panel';
     panel.style.cssText = `
         position: fixed;
-        bottom: 120px;
+        bottom: 170px;
         right: 20px;
         z-index: 99999;
         width: 280px;
-        max-height: calc(100vh - 140px);
+        max-height: calc(100vh - 190px);
         background: white;
         border-radius: 12px;
         box-shadow: 0 10px 40px rgba(0,0,0,0.2);
@@ -1420,17 +1460,10 @@ async function initialize() {
     // Load saved settings first
     await loadSettings();
     
-    // Create floating buttons
-    createToggleButton();
+    // Create floating buttons (order: On/Off at bottom, then Columns, then Dashboard)
+    createOnOffButton();
     createSettingsButton();
-
-    // Update toggle button to open overlay instead
-    const toggleBtn = document.getElementById('insight-lens-toggle');
-    if (toggleBtn) {
-        toggleBtn.removeEventListener('click', toggleInsightLens);
-        toggleBtn.addEventListener('click', toggleOverlay);
-        toggleBtn.innerHTML = '📊 Dashboard';
-    }
+    createDashboardButton();
 
     // Initial scan for inline columns (with delay for Angular to render)
     setTimeout(scanAndInject, 1000);

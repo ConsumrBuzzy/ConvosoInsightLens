@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Convoso Insight Lens</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="popup">
+        <header>
+            <h1>📊 Insight Lens</h1>
+            <p class="subtitle">4 Lensed Columns: APPT & LXFER %</p>
+        </header>
+
+        <div class="status-bar">
+            <span id="statusDot" class="status-dot"></span>
+            <span id="statusText">Checking...</span>
+        </div>
+
+        <div class="actions">
+            <button id="openDashboard" class="btn btn-primary">Open Dashboard Overlay</button>
+        </div>
+
+        <div class="info">
+            <p><strong>6 Lensed Columns:</strong></p>
+            <p style="margin-left: 8px;">APPT%(C), APPT%(D)</p>
+            <p style="margin-left: 8px;">LXFER%(C), LXFER%(D)</p>
+            <p style="margin-left: 8px;">SUCCESS%(C), SUCCESS%(D)</p>
+            <p style="margin-top: 8px;"><strong>%(C)</strong> = % of Contacts</p>
+            <p><strong>%(D)</strong> = % of Dialed (Calls)</p>
+        </div>
+
+        <div class="color-legend">
+            <div class="color-item" style="background: #dbeafe; color: #1e40af;">APPT</div>
+            <div class="color-item" style="background: #fce7f3; color: #9d174d;">LXFER</div>
+            <div class="color-item" style="background: #d1fae5; color: #065f46;">SUCCESS</div>
+        </div>
+
+        <footer>
+            <small>Use ⚙️ Columns button on page for visibility</small>
+        </footer>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
